@@ -1,0 +1,31 @@
+{
+  "story_id": "protocol_config_overrides_proxy_proto",
+  "test_cases": [
+    {
+      "inputs": {
+        "allowed_hosts": [
+          "myapp.com"
+        ],
+        "protocol": "https",
+        "forwarded_host": "myapp.com",
+        "forwarded_proto": "http"
+      },
+      "expected": {
+        "captured_base_url": "https://myapp.com/api/auth"
+      }
+    },
+    {
+      "inputs": {
+        "allowed_hosts": [
+          "api.example.com"
+        ],
+        "protocol": "https",
+        "forwarded_host": "api.example.com",
+        "forwarded_proto": "http"
+      },
+      "expected": {
+        "captured_base_url": "https://api.example.com/api/auth"
+      }
+    }
+  ]
+}

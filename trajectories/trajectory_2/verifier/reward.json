@@ -1,0 +1,17 @@
+{
+  "reward": 1.0,
+  "correctness": 1.0,
+  "verifier_score": 1.0,
+  "validation_score": 1.0,
+  "rubric_score": 0.8333,
+  "rubric_f2p_score": 0.8333,
+  "rubric_all_score": 1.0,
+  "rubric_all_f2p_score": 1.0,
+  "rubric_all_p2p_score": 1.0,
+  "taste_patch_bloat": 0.822,
+  "taste_practice_alignment": 3.2,
+  "taste_relative_taste": 2.4,
+  "rubric_judge_ok": 1,
+  "rubric_all_judge_ok": 1,
+  "taste_judge_ok": 1
+}

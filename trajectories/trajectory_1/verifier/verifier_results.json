@@ -1,0 +1,13 @@
+{
+  "passed": 2,
+  "total": 2,
+  "all_pass": true,
+  "tests": {
+    "js::baseURL static-string regression guard static string baseURL: getTestInstance + signInEmail works end-to-end": {
+      "pass": true
+    },
+    "js::baseURL static-string regression guard static string baseURL: getSession returns a session for the signed-in user": {
+      "pass": true
+    }
+  }
+}

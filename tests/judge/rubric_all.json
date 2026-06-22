@@ -1,0 +1,68 @@
+{
+  "files": [
+    "packages/better-auth/src/auth/base.ts",
+    "packages/better-auth/src/cookies/index.ts",
+    "packages/better-auth/src/integrations/svelte-kit.ts",
+    "packages/better-auth/src/plugins/jwt/sign.ts",
+    "packages/better-auth/src/plugins/jwt/verify.ts",
+    "packages/better-auth/src/plugins/mcp/index.ts",
+    "packages/better-auth/src/plugins/oauth-proxy/index.ts",
+    "packages/better-auth/src/plugins/oidc-provider/index.ts",
+    "packages/core/src/types/index.ts",
+    "packages/core/src/types/init-options.ts",
+    "packages/passkey/src/routes.ts",
+    "packages/telemetry/src/index.ts"
+  ],
+  "fail_to_pass": [
+    {
+      "name": "empty_`allowedhosts:_[]`_is_rejected_with_an_error_message_t",
+      "description": "Empty `allowedHosts: []` is rejected with an error message that\nmentions `allowedHosts`. Either at construction (preferred) or on the\nfirst request that exercises the dynamic resolver.\n"
+    },
+    {
+      "name": "a_request_bearing_`x-forwarded-host`_matching_an_allowed_hos",
+      "description": "A request bearing `x-forwarded-host` matching an allowed host resolves\nthe per-request baseURL to that host, with `x-forwarded-proto`-derived\nscheme. The middleware-visible `ctx.context.baseURL` reflects the\nresolved value.\n"
+    },
+    {
+      "name": "a_request_from_a_host_outside_`allowedhosts`_(with_no_`fallb",
+      "description": "A request from a host outside `allowedHosts` (with no `fallback`\nconfigured) causes `auth.handler(req)` to reject \u2014 the server\nrefuses to operate under an untrusted host.\n"
+    },
+    {
+      "name": "wildcard_host_patterns_(e.g._`*.vercel.app`,_`preview-*.myap",
+      "description": "Wildcard host patterns (e.g. `*.vercel.app`, `preview-*.myapp.com`)\nmatch hosts as expected. A `*.vercel.app` allows any subdomain, and a\nprefix pattern `preview-*.myapp.com` matches preview-named subdomains.\n"
+    },
+    {
+      "name": "when_the_request's_host_is_not_in_`allowedhosts`_but_a_`fall",
+      "description": "When the request's host is not in `allowedHosts` but a `fallback`\nURL is configured, the resolver uses the fallback (instead of\nthrowing). The fallback is the configured escape hatch.\n"
+    },
+    {
+      "name": "the_optional_`protocol`_config_takes_precedence_over\n`x-forw",
+      "description": "The optional `protocol` config takes precedence over\n`x-forwarded-proto`. When `protocol: \"https\"` is set, the resolved\nscheme is always https, even if the proxy header says `http`.\n"
+    },
+    {
+      "name": "`trustedorigins`_is_auto-expanded_from_`allowedhosts`_so_wil",
+      "description": "`trustedOrigins` is auto-expanded from `allowedHosts` so wildcard\nhosts and fallback origins are CSRF-trusted by default. Localhost\nentries get both http:// and https:// variants since local dev\ntypically uses http.\n"
+    },
+    {
+      "name": "with_`crosssubdomaincookies.enabled:_true`_and_a_dynamic_bas",
+      "description": "With `crossSubDomainCookies.enabled: true` and a dynamic baseURL,\nthe cookie's `Domain=` attribute is recomputed per-request to match\nthe resolved host. Otherwise multi-domain deployments cannot share\ncookies correctly per tenant.\n"
+    },
+    {
+      "name": "the_public_option_type_for_`baseurl`_accepts_both_a_static_s",
+      "description": "The public option type for `baseURL` accepts both a static string and\na dynamic config object `{ allowedHosts: string[], fallback?: string,\nprotocol?: \"http\" | \"https\" | \"auto\" }`. The dynamic shape is named\nand exported from the public types so application authors can refer\nto it.\n"
+    },
+    {
+      "name": "when_two_requests_for_distinct_allowed_hosts_are_processed\nc",
+      "description": "When two requests for distinct allowed hosts are processed\nconcurrently, each request's resolved baseURL / cookie domain /\ntrustedOrigins is isolated \u2014 no cross-contamination from a shared\nmutated AuthContext. Without this, the multi-tenant case is broken\nunder any non-trivial load.\n"
+    },
+    {
+      "name": "pre-existing_consumers_of_`options.baseurl`_that_previously",
+      "description": "Pre-existing consumers of `options.baseURL` that previously assumed a\nstring (cookies, jwt sign/verify, mcp, oauth-proxy, oidc-provider,\npasskey, telemetry, svelte-kit) now safely handle the wider type \u2014\nneither crash nor stringify-coerce the object. Workspace-wide\nTypeScript build still passes after the option type widening.\n"
+    }
+  ],
+  "pass_to_pass": [
+    {
+      "name": "static-string_baseurl_still_works_after_the_option_type_wide",
+      "description": "Static-string baseURL still works after the option type widening \u2014 a\nregression guard for apps that pass `baseURL: \"http://localhost:3000\"`\n(string).\n"
+    }
+  ]
+}

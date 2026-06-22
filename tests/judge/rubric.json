@@ -1,0 +1,31 @@
+{
+  "files": [
+    "packages/better-auth/src/auth/base.ts",
+    "packages/better-auth/src/cookies/index.ts",
+    "packages/better-auth/src/integrations/svelte-kit.ts",
+    "packages/better-auth/src/plugins/jwt/sign.ts",
+    "packages/better-auth/src/plugins/jwt/verify.ts",
+    "packages/better-auth/src/plugins/mcp/index.ts",
+    "packages/better-auth/src/plugins/oauth-proxy/index.ts",
+    "packages/better-auth/src/plugins/oidc-provider/index.ts",
+    "packages/core/src/types/index.ts",
+    "packages/core/src/types/init-options.ts",
+    "packages/passkey/src/routes.ts",
+    "packages/telemetry/src/index.ts"
+  ],
+  "fail_to_pass": [
+    {
+      "name": "dynamic_base_url_types_exposed",
+      "description": "The public `BetterAuthOptions` type for `baseURL` accepts BOTH a static string (the existing shape) AND a dynamic config object. The dynamic shape includes at minimum `allowedHosts: string[]` (required), and supports optional `fallback?: string` and optional `protocol?: \"http\" | \"https\" | \"auto\"`. The dynamic object's type is named (e.g. `DynamicBaseURLConfig` or any equivalent) and re-exported from the public `@better-auth/core` types so application code can refer to it without reaching into internal modules. Both branches of the `baseURL` union are part of the option's static type — applications can assign either shape without a TypeScript error."
+    },
+    {
+      "name": "per_request_isolation",
+      "description": "When the `baseURL` is configured as the dynamic-config object, `auth.handler` resolves the per-request origin into a per-request context derivation (e.g. `Object.create(ctx)`, an object spread, a `structuredClone`, or any equivalent clone strategy) rather than mutating the shared `AuthContext` for fields that vary per-request. Concurrent requests for distinct allowed hosts must not contaminate each other's resolved baseURL, cookie domain, or trustedOrigins. A handler that assigns `ctx.options.baseURL = ...` directly on the shared context for the dynamic-config path FAILS this criterion — that's the race-prone naive shape the issue specifically calls out."
+    },
+    {
+      "name": "consumer_type_safety",
+      "description": "Every pre-existing consumer of `options.baseURL` that previously assumed a string (cookies/createCookieGetter, jwt sign/verify, mcp plugin, oauth-proxy plugin, oidc-provider plugin, passkey routes, telemetry, svelte-kit isAuthPath, test-instance client baseURL computation) safely handles the wider type after the option's static type is widened. Acceptable shapes include (a) explicit `typeof options.baseURL === \"string\" ? options.baseURL : <fallback>` narrowing, (b) routing the value through a resolver helper that handles both shapes, or (c) any other narrowing that prevents the dynamic-config object from being stringify-coerced into JWT issuer / passkey rpID / cookie domain / telemetry project ID values. The workspace-wide TypeScript build (`pnpm typecheck`) must remain green."
+    }
+  ],
+  "pass_to_pass": []
+}

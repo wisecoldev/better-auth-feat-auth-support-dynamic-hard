@@ -1,0 +1,47 @@
+{
+  "story_id": "trusted_origins_includes_all_allowed_hosts",
+  "test_cases": [
+    {
+      "inputs": {
+        "allowed_hosts": [
+          "myapp.com",
+          "*.vercel.app",
+          "localhost:3000"
+        ],
+        "fallback": "https://fallback.example.com",
+        "forwarded_host": "myapp.com",
+        "required_origins": [
+          "https://myapp.com",
+          "https://*.vercel.app",
+          "https://localhost:3000",
+          "http://localhost:3000",
+          "https://fallback.example.com"
+        ]
+      },
+      "expected": {
+        "required_origins_present_json": "[\"http://localhost:3000\",\"https://*.vercel.app\",\"https://fallback.example.com\",\"https://localhost:3000\",\"https://myapp.com\"]"
+      }
+    },
+    {
+      "inputs": {
+        "allowed_hosts": [
+          "app.example.com",
+          "*.preview.dev",
+          "localhost:4000"
+        ],
+        "fallback": "https://canonical.example.com",
+        "forwarded_host": "feature-x.preview.dev",
+        "required_origins": [
+          "https://app.example.com",
+          "https://*.preview.dev",
+          "https://localhost:4000",
+          "http://localhost:4000",
+          "https://canonical.example.com"
+        ]
+      },
+      "expected": {
+        "required_origins_present_json": "[\"http://localhost:4000\",\"https://*.preview.dev\",\"https://app.example.com\",\"https://canonical.example.com\",\"https://localhost:4000\"]"
+      }
+    }
+  ]
+}

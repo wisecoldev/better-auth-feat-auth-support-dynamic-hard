@@ -1,0 +1,25 @@
+    read_file: packages/core/src/types/init-options.ts [334-420]
+    read_file: packages/core/src/types/index.ts
+  [rubric turn 0] stop=tool_use tools=2
+    read_file: packages/better-auth/src/auth/base.ts
+    read_file: packages/better-auth/src/context/create-context.ts [80-180]
+  [rubric turn 1] stop=tool_use tools=2
+    read_file: packages/better-auth/src/auth/base.ts [32-66]
+    read_file: packages/better-auth/src/integrations/svelte-kit.ts
+  [rubric turn 2] stop=tool_use tools=2
+    read_file: packages/better-auth/src/plugins/mcp/index.ts [1-60]
+    read_file: packages/passkey/src/routes.ts [1-50]
+  [rubric turn 3] stop=tool_use tools=2
+    read_file: packages/passkey/src/routes.ts [50-120]
+    read_file: packages/passkey/src/utils.ts
+  [rubric turn 4] stop=tool_use tools=2
+    list_directory: packages/passkey/src
+  [rubric turn 5] stop=tool_use tools=1
+    read_file: packages/passkey/src/index.ts [1-80]
+  [rubric turn 6] stop=tool_use tools=1
+    read_file: packages/passkey/src/routes.ts [120-220]
+  [rubric turn 7] stop=tool_use tools=1
+    read_file: packages/better-auth/src/utils/url.ts [187-325]
+  [rubric turn 8] stop=tool_use tools=1
+    submit_scores: 3 criteria
+  [rubric turn 9] stop=tool_use tools=1

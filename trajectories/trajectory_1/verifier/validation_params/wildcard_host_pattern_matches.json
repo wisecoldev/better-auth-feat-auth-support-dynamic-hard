@@ -1,0 +1,29 @@
+{
+  "story_id": "wildcard_host_pattern_matches",
+  "test_cases": [
+    {
+      "inputs": {
+        "allowed_hosts": [
+          "*.vercel.app",
+          "preview-*.myapp.com"
+        ],
+        "forwarded_host": "my-app-abc.vercel.app"
+      },
+      "expected": {
+        "captured_base_url": "https://my-app-abc.vercel.app/api/auth"
+      }
+    },
+    {
+      "inputs": {
+        "allowed_hosts": [
+          "*.vercel.app",
+          "preview-*.myapp.com"
+        ],
+        "forwarded_host": "preview-feature.myapp.com"
+      },
+      "expected": {
+        "captured_base_url": "https://preview-feature.myapp.com/api/auth"
+      }
+    }
+  ]
+}

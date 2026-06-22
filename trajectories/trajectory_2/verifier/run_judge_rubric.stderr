@@ -1,0 +1,29 @@
+    read_file: packages/core/src/types/init-options.ts [334-400]
+    read_file: packages/core/src/types/index.ts
+  [rubric turn 0] stop=tool_use tools=2
+    read_file: packages/better-auth/src/auth/base.ts
+    read_file: packages/better-auth/src/utils/url.ts
+  [rubric turn 1] stop=tool_use tools=2
+    read_file: packages/better-auth/src/cookies/index.ts [1-120]
+    read_file: packages/better-auth/src/plugins/jwt/sign.ts [80-120]
+  [rubric turn 2] stop=tool_use tools=2
+    read_file: packages/better-auth/src/integrations/svelte-kit.ts
+    read_file: packages/better-auth/src/plugins/mcp/index.ts [1-50]
+  [rubric turn 3] stop=tool_use tools=2
+    read_file: packages/better-auth/src/plugins/mcp/index.ts [50-150]
+    read_file: packages/better-auth/src/context/create-context.ts [95-160]
+  [rubric turn 4] stop=tool_use tools=2
+    read_file: packages/better-auth/src/context/create-context.ts [130-145]
+    read_file: packages/core/src/types/context.ts [260-300]
+  [rubric turn 5] stop=tool_use tools=2
+    read_file: packages/better-auth/src/plugins/mcp/index.ts [50-60]
+    read_file: packages/better-auth/src/integrations/svelte-kit.ts [37-52]
+  [rubric turn 6] stop=tool_use tools=2
+    read_file: packages/telemetry/src/index.ts
+    read_file: packages/better-auth/src/plugins/oauth-proxy/index.ts [540-580]
+  [rubric turn 7] stop=tool_use tools=2
+    read_file: packages/better-auth/src/plugins/mcp/index.ts [150-250]
+    read_file: packages/better-auth/src/plugins/oidc-provider/index.ts [1025-1045]
+  [rubric turn 8] stop=tool_use tools=2
+    submit_scores: 3 criteria
+  [rubric turn 9] stop=tool_use tools=1

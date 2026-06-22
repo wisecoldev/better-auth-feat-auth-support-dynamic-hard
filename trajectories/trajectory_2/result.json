@@ -1,0 +1,132 @@
+{
+  "id": "f0cbb649-d99c-4cc3-bb54-37590f5e5d7f",
+  "task_name": "better-auth-feat-auth-support-dynamic-hard",
+  "trial_name": "better-auth-feat-auth-support-dy__AnkTsw4",
+  "trial_uri": "file:///home/ubuntu/staff-bench-dev/leaderboard/2026-06-07/jobs/gpt-5-5-mini-swe/2026-06-10__06-06-54/better-auth-feat-auth-support-dy__AnkTsw4",
+  "task_id": {
+    "path": "leaderboard/2026-06-07/dataset-gpt55-100/better-auth-feat-auth-support-dynamic-hard"
+  },
+  "source": "dataset-gpt55-100",
+  "task_checksum": "f22cc7eea288d97fcd6331cc8e60645b9e808ab889dde65d7dc37696f324cd48",
+  "config": {
+    "task": {
+      "path": "leaderboard/2026-06-07/dataset-gpt55-100/better-auth-feat-auth-support-dynamic-hard",
+      "git_url": null,
+      "git_commit_id": null,
+      "name": null,
+      "ref": null,
+      "overwrite": false,
+      "download_dir": null,
+      "source": "dataset-gpt55-100"
+    },
+    "trial_name": "better-auth-feat-auth-support-dy__AnkTsw4",
+    "trials_dir": "leaderboard/2026-06-07/jobs/gpt-5-5-mini-swe/2026-06-10__06-06-54",
+    "timeout_multiplier": 4.0,
+    "agent_timeout_multiplier": null,
+    "verifier_timeout_multiplier": null,
+    "agent_setup_timeout_multiplier": null,
+    "environment_build_timeout_multiplier": null,
+    "agent": {
+      "name": "mini-swe-agent",
+      "import_path": null,
+      "model_name": "openai/@openai/gpt-5.5",
+      "skills": [],
+      "override_timeout_sec": null,
+      "override_setup_timeout_sec": null,
+      "max_timeout_sec": null,
+      "extra_allowed_hosts": [],
+      "kwargs": {
+        "version": "2.3.0",
+        "config_file": "leaderboard/2026-06-07/jobs/gpt-5-5-mini-swe/mswea-effort.yaml"
+      },
+      "env": {},
+      "mcp_servers": []
+    },
+    "environment": {
+      "type": "modal",
+      "import_path": null,
+      "force_build": false,
+      "delete": true,
+      "cpu_enforcement_policy": "ignore",
+      "memory_enforcement_policy": "ignore",
+      "override_cpus": null,
+      "override_memory_mb": null,
+      "override_storage_mb": null,
+      "override_gpus": null,
+      "override_tpu": null,
+      "mounts": null,
+      "extra_docker_compose": [],
+      "env": {},
+      "kwargs": {
+        "app_name": "__harbor_senior-swe__",
+        "sandbox_timeout_secs": 50400,
+        "sandbox_idle_timeout_secs": 3600
+      },
+      "extra_allowed_hosts": []
+    },
+    "verifier": {
+      "override_timeout_sec": null,
+      "max_timeout_sec": null,
+      "env": {},
+      "disable": false
+    },
+    "artifacts": [],
+    "extra_instruction_paths": [],
+    "job_id": "e1f783dd-dfdc-4cc1-b19f-65a7b9c3ac6a"
+  },
+  "agent_info": {
+    "name": "mini-swe-agent",
+    "version": "2.3.0",
+    "model_info": {
+      "name": "@openai/gpt-5.5",
+      "provider": "openai"
+    }
+  },
+  "agent_result": {
+    "n_input_tokens": 0,
+    "n_cache_tokens": 0,
+    "n_output_tokens": 0,
+    "cost_usd": 21.301060000000003,
+    "rollout_details": null,
+    "metadata": null
+  },
+  "verifier_result": {
+    "rewards": {
+      "reward": 1.0,
+      "correctness": 1.0,
+      "verifier_score": 1.0,
+      "validation_score": 1.0,
+      "rubric_score": 0.8333,
+      "rubric_f2p_score": 0.8333,
+      "rubric_all_score": 1.0,
+      "rubric_all_f2p_score": 1.0,
+      "rubric_all_p2p_score": 1.0,
+      "taste_patch_bloat": 0.822,
+      "taste_practice_alignment": 3.2,
+      "taste_relative_taste": 2.4,
+      "rubric_judge_ok": 1,
+      "rubric_all_judge_ok": 1,
+      "taste_judge_ok": 1
+    }
+  },
+  "exception_info": null,
+  "started_at": "2026-06-10T09:40:26.970534Z",
+  "finished_at": "2026-06-10T10:09:49.663553Z",
+  "environment_setup": {
+    "started_at": "2026-06-10T09:40:27.007952Z",
+    "finished_at": "2026-06-10T09:40:30.115759Z"
+  },
+  "agent_setup": {
+    "started_at": "2026-06-10T09:40:30.115792Z",
+    "finished_at": "2026-06-10T09:40:41.801410Z"
+  },
+  "agent_execution": {
+    "started_at": "2026-06-10T09:40:41.801497Z",
+    "finished_at": "2026-06-10T10:00:52.421689Z"
+  },
+  "verifier": {
+    "started_at": "2026-06-10T10:00:58.209541Z",
+    "finished_at": "2026-06-10T10:09:47.736661Z"
+  },
+  "step_results": null
+}

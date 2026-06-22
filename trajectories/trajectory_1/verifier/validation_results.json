@@ -1,0 +1,53 @@
+{
+  "validation_score": 1.0,
+  "passed_stories": 8,
+  "total_stories": 8,
+  "passed_cases": 16,
+  "total_cases": 16,
+  "stories": {
+    "empty_allowed_hosts_rejected": {
+      "pass": true,
+      "reason": "OK"
+    },
+    "allowed_exact_host_resolves": {
+      "pass": true,
+      "reason": "OK"
+    },
+    "disallowed_host_without_fallback_throws": {
+      "pass": true,
+      "reason": "OK"
+    },
+    "wildcard_host_pattern_matches": {
+      "pass": true,
+      "reason": "OK"
+    },
+    "fallback_used_for_disallowed_host": {
+      "pass": true,
+      "reason": "OK"
+    },
+    "protocol_config_overrides_proxy_proto": {
+      "pass": true,
+      "reason": "OK"
+    },
+    "trusted_origins_includes_all_allowed_hosts": {
+      "pass": true,
+      "reason": "OK"
+    },
+    "per_request_cookie_domain_dynamic": {
+      "pass": true,
+      "reason": "OK"
+    }
+  },
+  "validation_agent_harness": "miniswebench",
+  "validation_agent_model": "@bedrock/global.anthropic.claude-sonnet-4-6",
+  "review_judge_overall": 3.0,
+  "review_judge_per_criterion": {
+    "behavioral_authenticity": 3,
+    "procedure_fidelity": 3,
+    "story_coverage": 3,
+    "execution_outcome_alignment": 3,
+    "expected_fidelity": 3
+  },
+  "review_judge_discard_recommended": false,
+  "review_judge_discard_reasons": []
+}

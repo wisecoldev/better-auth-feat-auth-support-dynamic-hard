@@ -1,0 +1,29 @@
+{
+  "story_id": "fallback_used_for_disallowed_host",
+  "test_cases": [
+    {
+      "inputs": {
+        "allowed_hosts": [
+          "myapp.com"
+        ],
+        "fallback": "https://myapp.com",
+        "forwarded_host": "evil.com"
+      },
+      "expected": {
+        "captured_base_url": "https://myapp.com/api/auth"
+      }
+    },
+    {
+      "inputs": {
+        "allowed_hosts": [
+          "only-this.example.com"
+        ],
+        "fallback": "https://canonical.example.com",
+        "forwarded_host": "another.intruder.test"
+      },
+      "expected": {
+        "captured_base_url": "https://canonical.example.com/api/auth"
+      }
+    }
+  ]
+}

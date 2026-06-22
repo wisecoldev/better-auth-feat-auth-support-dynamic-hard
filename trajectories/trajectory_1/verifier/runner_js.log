@@ -1,0 +1,7 @@
+=== STDOUT ===
+{"numTotalTestSuites":2,"numPassedTestSuites":2,"numFailedTestSuites":0,"numPendingTestSuites":0,"numTotalTests":2,"numPassedTests":2,"numFailedTests":0,"numPendingTests":0,"numTodoTests":0,"snapshot":{"added":0,"failure":false,"filesAdded":0,"filesRemoved":0,"filesRemovedList":[],"filesUnmatched":0,"filesUpdated":0,"matched":0,"total":0,"unchecked":0,"uncheckedKeysByFile":[],"unmatched":0,"updated":0,"didUpdate":false},"startTime":1780318246075,"success":true,"testResults":[{"assertionResults":[{"ancestorTitles":["baseURL static-string regression guard"],"fullName":"baseURL static-string regression guard static string baseURL: getTestInstance + signInEmail works end-to-end","status":"passed","title":"static string baseURL: getTestInstance + signInEmail works end-to-end","duration":389.700386,"failureMessages":[],"meta":{}},{"ancestorTitles":["baseURL static-string regression guard"],"fullName":"baseURL static-string regression guard static string baseURL: getSession returns a session for the signed-in user","status":"passed","title":"static string baseURL: getSession returns a session for the signed-in user","duration":312.9132010000003,"failureMessages":[],"meta":{}}],"startTime":1780318248666,"endTime":1780318249368.913,"status":"passed","message":"","name":"/repo/better-auth/packages/better-auth/src/auth/verify.test.ts"}]}
+
+=== STDERR ===
+(node:2703) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+

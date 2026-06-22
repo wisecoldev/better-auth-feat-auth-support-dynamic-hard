@@ -1,0 +1,826 @@
+diff --git a/packages/better-auth/src/auth/base.ts b/packages/better-auth/src/auth/base.ts
+index 0c8bd0f76..700d67254 100644
+--- a/packages/better-auth/src/auth/base.ts
++++ b/packages/better-auth/src/auth/base.ts
+@@ -3,8 +3,15 @@ import { runWithAdapter } from "@better-auth/core/context";
+ import { BASE_ERROR_CODES, BetterAuthError } from "@better-auth/core/error";
+ import { getEndpoints, router } from "../api";
+ import { getTrustedOrigins, getTrustedProviders } from "../context/helpers";
++import { createCookieGetter, getCookies } from "../cookies";
+ import type { Auth } from "../types";
+-import { getBaseURL, getOrigin } from "../utils/url";
++import {
++	getBaseURL,
++	getOrigin,
++	isDynamicBaseURL,
++	resolveDynamicBaseURL,
++	withPath,
++} from "../utils/url";
+ 
+ export const createBetterAuth = <Options extends BetterAuthOptions>(
+ 	options: Options,
+@@ -25,7 +32,17 @@ export const createBetterAuth = <Options extends BetterAuthOptions>(
+ 		handler: async (request: Request) => {
+ 			const ctx = await authContext;
+ 			const basePath = ctx.options.basePath || "/api/auth";
+-			if (!ctx.options.baseURL) {
++			if (isDynamicBaseURL(options.baseURL)) {
++				// Resolve the per-request origin from the (proxy) host headers,
++				// validated against the configured allow-list.
++				const origin = resolveDynamicBaseURL(options.baseURL, request);
++				ctx.baseURL = withPath(origin, basePath);
++				ctx.options.baseURL = getOrigin(ctx.baseURL) || origin;
++				// Recompute cookie getters so per-request cookie attributes (e.g.
++				// the cross-subdomain `Domain`) reflect the resolved origin.
++				ctx.authCookies = getCookies(ctx.options);
++				ctx.createAuthCookie = createCookieGetter(ctx.options);
++			} else if (!ctx.options.baseURL) {
+ 				const baseURL = getBaseURL(
+ 					undefined,
+ 					basePath,
+diff --git a/packages/better-auth/src/auth/dynamic-base-url.test.ts b/packages/better-auth/src/auth/dynamic-base-url.test.ts
+new file mode 100644
+index 000000000..fb4c6094e
+--- /dev/null
++++ b/packages/better-auth/src/auth/dynamic-base-url.test.ts
+@@ -0,0 +1,178 @@
++import { describe, expect, it } from "vitest";
++import { createAuthMiddleware } from "../api";
++import { getTestInstance } from "../test-utils/test-instance";
++import { betterAuth } from "./full";
++
++const SECRET = "better-auth-secret-that-is-long-enough-for-validation-test";
++
++function reqFrom(host: string, proto = "https") {
++	return new Request("http://internal/api/auth/ok", {
++		method: "GET",
++		headers: {
++			"x-forwarded-host": host,
++			"x-forwarded-proto": proto,
++		},
++	});
++}
++
++describe("dynamic baseURL", () => {
++	it("rejects empty allowedHosts on first request", async () => {
++		const auth = betterAuth({
++			secret: SECRET,
++			baseURL: { allowedHosts: [] } as any,
++		});
++		await expect(auth.handler(reqFrom("myapp.com"))).rejects.toThrowError(
++			/allowedHosts/,
++		);
++	});
++
++	it("resolves exact allowed host from x-forwarded-host", async () => {
++		let captured: string | undefined;
++		const { auth } = await getTestInstance({
++			baseURL: { allowedHosts: ["myapp.com", "www.myapp.com"] } as any,
++			advanced: { disableCSRFCheck: true },
++			hooks: {
++				before: createAuthMiddleware(async (ctx) => {
++					captured = ctx.context.baseURL;
++				}),
++			},
++		});
++		await auth.handler(reqFrom("www.myapp.com"));
++		expect(captured).toBe("https://www.myapp.com/api/auth");
++	});
++
++	it("rejects host not in allow-list naming the host", async () => {
++		const { auth } = await getTestInstance({
++			baseURL: { allowedHosts: ["myapp.com"] } as any,
++		});
++		await expect(auth.handler(reqFrom("evil.com"))).rejects.toThrowError(
++			/evil\.com/,
++		);
++	});
++
++	it("matches wildcard patterns", async () => {
++		let captured: string | undefined;
++		const { auth } = await getTestInstance({
++			baseURL: {
++				allowedHosts: ["*.vercel.app", "preview-*.myapp.com"],
++			} as any,
++			hooks: {
++				before: createAuthMiddleware(async (ctx) => {
++					captured = ctx.context.baseURL;
++				}),
++			},
++		});
++		await auth.handler(reqFrom("my-feature.vercel.app"));
++		expect(captured).toBe("https://my-feature.vercel.app/api/auth");
++		await auth.handler(reqFrom("preview-123.myapp.com"));
++		expect(captured).toBe("https://preview-123.myapp.com/api/auth");
++	});
++
++	it("uses fallback when host not allowed", async () => {
++		let captured: string | undefined;
++		const { auth } = await getTestInstance({
++			baseURL: {
++				allowedHosts: ["myapp.com"],
++				fallback: "https://fallback.example.com",
++			} as any,
++			hooks: {
++				before: createAuthMiddleware(async (ctx) => {
++					captured = ctx.context.baseURL;
++				}),
++			},
++		});
++		await auth.handler(reqFrom("not-allowed.com"));
++		expect(captured).toBe("https://fallback.example.com/api/auth");
++	});
++
++	it("protocol config overrides x-forwarded-proto", async () => {
++		let captured: string | undefined;
++		const { auth } = await getTestInstance({
++			baseURL: {
++				allowedHosts: ["myapp.com"],
++				protocol: "https",
++			} as any,
++			hooks: {
++				before: createAuthMiddleware(async (ctx) => {
++					captured = ctx.context.baseURL;
++				}),
++			},
++		});
++		await auth.handler(reqFrom("myapp.com", "http"));
++		expect(captured).toBe("https://myapp.com/api/auth");
++	});
++
++	it("extends trustedOrigins with allowed hosts", async () => {
++		const { auth } = await getTestInstance({
++			baseURL: {
++				allowedHosts: ["myapp.com", "localhost:3000"],
++				fallback: "https://fallback.example.com",
++			} as any,
++		});
++		const ctx = await auth.$context;
++		expect(ctx.trustedOrigins).toContain("https://myapp.com");
++		expect(ctx.trustedOrigins).toContain("https://localhost:3000");
++		expect(ctx.trustedOrigins).toContain("http://localhost:3000");
++		expect(ctx.trustedOrigins).toContain("https://fallback.example.com");
++	});
++
++	it("per-request cookie Domain matches resolved host with cross-subdomain", async () => {
++		const { auth } = await getTestInstance({
++			baseURL: {
++				allowedHosts: ["a.example.com", "b.example.com"],
++			} as any,
++			advanced: {
++				crossSubDomainCookies: { enabled: true },
++				disableCSRFCheck: true,
++			},
++		});
++		const domains: (string | undefined)[] = [];
++		for (const host of ["a.example.com", "b.example.com"]) {
++			const res = await auth.handler(
++				new Request(`https://${host}/api/auth/sign-up/email`, {
++					method: "POST",
++					headers: {
++						"content-type": "application/json",
++						"x-forwarded-host": host,
++						"x-forwarded-proto": "https",
++						origin: `https://${host}`,
++					},
++					body: JSON.stringify({
++						email: `u-${host}@test.com`,
++						password: "password1234",
++						name: "x",
++					}),
++				}),
++			);
++			const sc = res.headers.get("set-cookie") || "";
++			const m = sc.match(/Domain=([^;]+)/i);
++			domains.push(m?.[1]);
++		}
++		expect(domains[0]).toBe("a.example.com");
++		expect(domains[1]).toBe("b.example.com");
++	});
++
++	it("accepts CSRF/origin for an allowed dynamic host with checks enabled", async () => {
++		const { auth } = await getTestInstance({
++			baseURL: { allowedHosts: ["a.example.com"] } as any,
++			advanced: { disableOriginCheck: false, disableCSRFCheck: false },
++		});
++		const res = await auth.handler(
++			new Request("https://a.example.com/api/auth/sign-up/email", {
++				method: "POST",
++				headers: {
++					"content-type": "application/json",
++					"x-forwarded-host": "a.example.com",
++					"x-forwarded-proto": "https",
++					origin: "https://a.example.com",
++				},
++				body: JSON.stringify({
++					email: "csrf-user@test.com",
++					password: "password1234",
++					name: "x",
++				}),
++			}),
++		);
++		expect(res.status).toBe(200);
++	});
++});
+diff --git a/packages/better-auth/src/context/create-context.ts b/packages/better-auth/src/context/create-context.ts
+index cd878a1bf..fc4cf9649 100644
+--- a/packages/better-auth/src/context/create-context.ts
++++ b/packages/better-auth/src/context/create-context.ts
+@@ -19,7 +19,14 @@ import { createInternalAdapter } from "../db/internal-adapter";
+ import { DEFAULT_SECRET } from "../utils/constants";
+ import { isPromise } from "../utils/is-promise";
+ import { checkPassword } from "../utils/password";
+-import { getBaseURL } from "../utils/url";
++import {
++	assertValidDynamicBaseURL,
++	getBaseURL,
++	getDynamicTrustedOrigins,
++	getOrigin,
++	isDynamicBaseURL,
++	withPath,
++} from "../utils/url";
+ import {
+ 	getInternalPlugins,
+ 	getTrustedOrigins,
+@@ -80,6 +87,27 @@ function validateSecret(
+ 	}
+ }
+ 
++/**
++ * Merges dynamically-derived trusted origins into the user-provided
++ * `trustedOrigins` option, preserving support for both the static-array and
++ * the async-function shapes.
++ */
++function extendTrustedOrigins(
++	existing: BetterAuthOptions["trustedOrigins"],
++	extra: string[],
++): BetterAuthOptions["trustedOrigins"] {
++	if (!existing) {
++		return extra;
++	}
++	if (typeof existing === "function") {
++		return async (request) => {
++			const resolved = await existing(request);
++			return [...(resolved ?? []), ...extra];
++		};
++	}
++	return [...existing, ...extra];
++}
++
+ export async function createAuthContext<Options extends BetterAuthOptions>(
+ 	adapter: DBAdapter,
+ 	options: Options,
+@@ -104,7 +132,30 @@ export async function createAuthContext<Options extends BetterAuthOptions>(
+ 	const plugins = options.plugins || [];
+ 	const internalPlugins = getInternalPlugins(options);
+ 	const logger = createLogger(options.logger);
+-	const baseURL = getBaseURL(options.baseURL, options.basePath);
++
++	const rawBaseURL = options.baseURL;
++	let baseURL: string | undefined;
++	if (isDynamicBaseURL(rawBaseURL)) {
++		// Dynamic (per-request) baseURL. Validate up-front so misconfiguration
++		// surfaces when the auth instance is created / first used.
++		assertValidDynamicBaseURL(rawBaseURL);
++		// Use a placeholder origin for initialization. The real per-request
++		// origin is resolved inside the request handler.
++		const placeholderOrigin = rawBaseURL.fallback
++			? getOrigin(rawBaseURL.fallback) || rawBaseURL.fallback
++			: `${rawBaseURL.protocol ?? "https"}://${rawBaseURL.allowedHosts[0]}`;
++		baseURL = withPath(placeholderOrigin, options.basePath);
++		// Every allowed host (and the fallback origin) becomes a trusted origin.
++		options = {
++			...options,
++			trustedOrigins: extendTrustedOrigins(
++				options.trustedOrigins,
++				getDynamicTrustedOrigins(rawBaseURL),
++			),
++		} as Options;
++	} else {
++		baseURL = getBaseURL(rawBaseURL, options.basePath);
++	}
+ 
+ 	if (!baseURL) {
+ 		logger.warn(
+diff --git a/packages/better-auth/src/cookies/index.ts b/packages/better-auth/src/cookies/index.ts
+index a09bd525c..2afaafb04 100644
+--- a/packages/better-auth/src/cookies/index.ts
++++ b/packages/better-auth/src/cookies/index.ts
+@@ -32,11 +32,17 @@ import {
+ } from "./session-store";
+ 
+ export function createCookieGetter(options: BetterAuthOptions) {
++	// `options.baseURL` may be the dynamic (object) configuration shape. At the
++	// point cookies are computed it has always been resolved to a concrete
++	// origin string (either at startup with a placeholder, or per-request inside
++	// the handler), so only treat string values here.
++	const baseURL =
++		typeof options.baseURL === "string" ? options.baseURL : undefined;
+ 	const secure =
+ 		options.advanced?.useSecureCookies !== undefined
+ 			? options.advanced?.useSecureCookies
+-			: options.baseURL
+-				? options.baseURL.startsWith("https://")
++			: baseURL
++				? baseURL.startsWith("https://")
+ 					? true
+ 					: false
+ 				: isProduction;
+@@ -45,7 +51,7 @@ export function createCookieGetter(options: BetterAuthOptions) {
+ 		!!options.advanced?.crossSubDomainCookies?.enabled;
+ 	const domain = crossSubdomainEnabled
+ 		? options.advanced?.crossSubDomainCookies?.domain ||
+-			(options.baseURL ? new URL(options.baseURL).hostname : undefined)
++			(baseURL ? new URL(baseURL).hostname : undefined)
+ 		: undefined;
+ 	if (crossSubdomainEnabled && !domain) {
+ 		throw new BetterAuthError(
+diff --git a/packages/better-auth/src/plugins/jwt/sign.ts b/packages/better-auth/src/plugins/jwt/sign.ts
+index 6d739c117..2a366f0c7 100644
+--- a/packages/better-auth/src/plugins/jwt/sign.ts
++++ b/packages/better-auth/src/plugins/jwt/sign.ts
+@@ -3,6 +3,7 @@ import { BetterAuthError } from "@better-auth/core/error";
+ import type { JWTPayload } from "jose";
+ import { importJWK, SignJWT } from "jose";
+ import { symmetricDecrypt } from "../../crypto";
++import { getStaticBaseURL } from "../../utils/url";
+ import { getJwksAdapter } from "./adapter";
+ import type { JwtOptions } from "./types";
+ import { createJwk, toExpJWT } from "./utils";
+@@ -88,11 +89,13 @@ export async function signJWT(
+ 
+ 	// Iss
+ 	const iss = payload.iss;
+-	const defaultIss = options?.jwt?.issuer ?? ctx.context.options.baseURL!;
++	const defaultIss =
++		options?.jwt?.issuer ?? getStaticBaseURL(ctx.context.options.baseURL)!;
+ 
+ 	// Aud
+ 	const aud = payload.aud;
+-	const defaultAud = options?.jwt?.audience ?? ctx.context.options.baseURL!;
++	const defaultAud =
++		options?.jwt?.audience ?? getStaticBaseURL(ctx.context.options.baseURL)!;
+ 
+ 	// Custom/remote signing function
+ 	if (options?.jwt?.sign) {
+diff --git a/packages/better-auth/src/plugins/jwt/verify.ts b/packages/better-auth/src/plugins/jwt/verify.ts
+index 58011329c..78c00eba5 100644
+--- a/packages/better-auth/src/plugins/jwt/verify.ts
++++ b/packages/better-auth/src/plugins/jwt/verify.ts
+@@ -3,6 +3,7 @@ import { getCurrentAuthContext } from "@better-auth/core/context";
+ import { base64 } from "@better-auth/utils/base64";
+ import type { JWTPayload } from "jose";
+ import { importJWK, jwtVerify } from "jose";
++import { getStaticBaseURL } from "../../utils/url";
+ import { getJwksAdapter } from "./adapter";
+ import type { JwtOptions } from "./types";
+ 
+@@ -50,8 +51,10 @@ export async function verifyJWT<T extends JWTPayload = JWTPayload>(
+ 		const cryptoKey = await importJWK(publicKey, alg);
+ 
+ 		const { payload } = await jwtVerify(token, cryptoKey, {
+-			issuer: options?.jwt?.issuer ?? ctx.context.options.baseURL,
+-			audience: options?.jwt?.audience ?? ctx.context.options.baseURL,
++			issuer:
++				options?.jwt?.issuer ?? getStaticBaseURL(ctx.context.options.baseURL),
++			audience:
++				options?.jwt?.audience ?? getStaticBaseURL(ctx.context.options.baseURL),
+ 		});
+ 
+ 		if (!payload.sub || !payload.aud) {
+diff --git a/packages/better-auth/src/plugins/oauth-proxy/index.ts b/packages/better-auth/src/plugins/oauth-proxy/index.ts
+index e1f5831f5..dbd0ed10e 100644
+--- a/packages/better-auth/src/plugins/oauth-proxy/index.ts
++++ b/packages/better-auth/src/plugins/oauth-proxy/index.ts
+@@ -14,7 +14,7 @@ import { handleOAuthUserInfo } from "../../oauth2/link-account";
+ import type { StateData } from "../../state";
+ import { parseGenericState } from "../../state";
+ import type { Account, User } from "../../types";
+-import { getOrigin } from "../../utils/url";
++import { getOrigin, getStaticBaseURL } from "../../utils/url";
+ import {
+ 	checkSkipProxy,
+ 	redirectOnError,
+@@ -150,7 +150,9 @@ export const oAuthProxy = <O extends OAuthProxyOptions>(opts?: O) => {
+ 				async (ctx) => {
+ 					const defaultErrorURL =
+ 						ctx.context.options.onAPIError?.errorURL ||
+-						`${stripTrailingSlash(ctx.context.options.baseURL)}/api/auth/error`;
++						`${stripTrailingSlash(
++							getStaticBaseURL(ctx.context.options.baseURL),
++						)}/api/auth/error`;
+ 
+ 					const encryptedProfile = ctx.query.profile;
+ 					if (!encryptedProfile) {
+@@ -557,7 +559,7 @@ export const oAuthProxy = <O extends OAuthProxyOptions>(opts?: O) => {
+ 
+ 						const productionURL =
+ 							opts?.productionURL ||
+-							ctx.context.options.baseURL ||
++							getStaticBaseURL(ctx.context.options.baseURL) ||
+ 							ctx.context.baseURL;
+ 						const productionOrigin = getOrigin(productionURL);
+ 
+diff --git a/packages/better-auth/src/plugins/oidc-provider/index.ts b/packages/better-auth/src/plugins/oidc-provider/index.ts
+index 0e968c24b..b67891ede 100644
+--- a/packages/better-auth/src/plugins/oidc-provider/index.ts
++++ b/packages/better-auth/src/plugins/oidc-provider/index.ts
+@@ -21,6 +21,7 @@ import {
+ } from "../../crypto";
+ import { mergeSchema } from "../../db";
+ import { HIDE_METADATA } from "../../utils";
++import { getStaticBaseURL } from "../../utils/url";
+ import { getJwtToken, verifyJWT } from "../jwt";
+ import { authorize } from "./authorize";
+ import type { OAuthApplication } from "./schema";
+@@ -1031,7 +1032,7 @@ export const oidcProvider = (options: OIDCOptions) => {
+ 									audience: client_id.toString(),
+ 									issuer:
+ 										jwtPlugin.options?.jwt?.issuer ??
+-										ctx.context.options.baseURL,
++										getStaticBaseURL(ctx.context.options.baseURL),
+ 									expirationTime,
+ 									definePayload: () => payload,
+ 								},
+diff --git a/packages/better-auth/src/utils/url.test.ts b/packages/better-auth/src/utils/url.test.ts
+index d75e4be6c..1dbe16f66 100644
+--- a/packages/better-auth/src/utils/url.test.ts
++++ b/packages/better-auth/src/utils/url.test.ts
+@@ -261,3 +261,88 @@ describe("getBaseURL", () => {
+ 		});
+ 	});
+ });
++
++describe("dynamic baseURL resolver", () => {
++	function req(host: string, proto = "https") {
++		return new Request("http://internal/api/auth/ok", {
++			headers: { "x-forwarded-host": host, "x-forwarded-proto": proto },
++		});
++	}
++
++	it("isDynamicBaseURL recognizes the dynamic shape", async () => {
++		const { isDynamicBaseURL } = await import("./url");
++		expect(isDynamicBaseURL({ allowedHosts: ["a.com"] })).toBe(true);
++		expect(isDynamicBaseURL("https://a.com")).toBe(false);
++		expect(isDynamicBaseURL(undefined)).toBe(false);
++		expect(isDynamicBaseURL({})).toBe(false);
++	});
++
++	it("assertValidDynamicBaseURL throws naming allowedHosts when empty", async () => {
++		const { assertValidDynamicBaseURL } = await import("./url");
++		expect(() => assertValidDynamicBaseURL({ allowedHosts: [] })).toThrowError(
++			/allowedHosts/,
++		);
++	});
++
++	it("resolves exact allowed host", async () => {
++		const { resolveDynamicBaseURL } = await import("./url");
++		expect(
++			resolveDynamicBaseURL({ allowedHosts: ["myapp.com"] }, req("myapp.com")),
++		).toBe("https://myapp.com");
++	});
++
++	it("rejects non-allowed host naming it", async () => {
++		const { resolveDynamicBaseURL } = await import("./url");
++		expect(() =>
++			resolveDynamicBaseURL({ allowedHosts: ["myapp.com"] }, req("evil.com")),
++		).toThrowError(/evil\.com/);
++	});
++
++	it("matches wildcard patterns", async () => {
++		const { resolveDynamicBaseURL } = await import("./url");
++		expect(
++			resolveDynamicBaseURL(
++				{ allowedHosts: ["*.vercel.app"] },
++				req("my-feature.vercel.app"),
++			),
++		).toBe("https://my-feature.vercel.app");
++		expect(
++			resolveDynamicBaseURL(
++				{ allowedHosts: ["preview-*.myapp.com"] },
++				req("preview-123.myapp.com"),
++			),
++		).toBe("https://preview-123.myapp.com");
++	});
++
++	it("uses fallback when host not allowed", async () => {
++		const { resolveDynamicBaseURL } = await import("./url");
++		expect(
++			resolveDynamicBaseURL(
++				{ allowedHosts: ["myapp.com"], fallback: "https://fb.com" },
++				req("nope.com"),
++			),
++		).toBe("https://fb.com");
++	});
++
++	it("protocol config overrides x-forwarded-proto", async () => {
++		const { resolveDynamicBaseURL } = await import("./url");
++		expect(
++			resolveDynamicBaseURL(
++				{ allowedHosts: ["myapp.com"], protocol: "https" },
++				req("myapp.com", "http"),
++			),
++		).toBe("https://myapp.com");
++	});
++
++	it("getDynamicTrustedOrigins expands hosts and localhost", async () => {
++		const { getDynamicTrustedOrigins } = await import("./url");
++		const origins = getDynamicTrustedOrigins({
++			allowedHosts: ["myapp.com", "localhost:3000"],
++			fallback: "https://fb.com",
++		});
++		expect(origins).toContain("https://myapp.com");
++		expect(origins).toContain("https://localhost:3000");
++		expect(origins).toContain("http://localhost:3000");
++		expect(origins).toContain("https://fb.com");
++	});
++});
+diff --git a/packages/better-auth/src/utils/url.ts b/packages/better-auth/src/utils/url.ts
+index 4caa2ba71..c9e59b102 100644
+--- a/packages/better-auth/src/utils/url.ts
++++ b/packages/better-auth/src/utils/url.ts
+@@ -1,5 +1,7 @@
++import type { DynamicBaseURL } from "@better-auth/core";
+ import { env } from "@better-auth/core/env";
+ import { BetterAuthError } from "@better-auth/core/error";
++import { wildcardMatch } from "./wildcard";
+ 
+ function checkHasPath(url: string): boolean {
+ 	try {
+@@ -34,7 +36,7 @@ function assertHasProtocol(url: string): void {
+ 	}
+ }
+ 
+-function withPath(url: string, path = "/api/auth") {
++export function withPath(url: string, path = "/api/auth") {
+ 	assertHasProtocol(url);
+ 
+ 	const hasPath = checkHasPath(url);
+@@ -104,13 +106,13 @@ function validateProxyHeader(header: string, type: "host" | "proto"): boolean {
+ }
+ 
+ export function getBaseURL(
+-	url?: string,
++	url?: string | DynamicBaseURL,
+ 	path?: string,
+ 	request?: Request,
+ 	loadEnv?: boolean,
+ 	trustedProxyHeaders?: boolean | undefined,
+ ) {
+-	if (url) {
++	if (typeof url === "string" && url) {
+ 		return withPath(url, path);
+ 	}
+ 
+@@ -185,3 +187,138 @@ export function getHost(url: string) {
+ 		return null;
+ 	}
+ }
++
++/**
++ * Type guard that returns true when the provided `baseURL` option is the
++ * dynamic (per-request) configuration shape rather than a static string.
++ */
++export function isDynamicBaseURL(baseURL: unknown): baseURL is DynamicBaseURL {
++	return (
++		typeof baseURL === "object" &&
++		baseURL !== null &&
++		"allowedHosts" in baseURL &&
++		Array.isArray((baseURL as DynamicBaseURL).allowedHosts)
++	);
++}
++
++/**
++ * Validates the dynamic baseURL configuration, throwing a `BetterAuthError`
++ * that names the offending field when it is misconfigured.
++ */
++export function assertValidDynamicBaseURL(config: DynamicBaseURL): void {
++	if (!Array.isArray(config.allowedHosts) || config.allowedHosts.length === 0) {
++		throw new BetterAuthError(
++			"Invalid dynamic baseURL configuration: `allowedHosts` must be a non-empty array.",
++		);
++	}
++}
++
++/**
++ * Returns true when the given host matches the provided allow-list entry.
++ * Supports exact matches and wildcard patterns (e.g. `*.vercel.app`).
++ */
++function hostMatchesPattern(host: string, pattern: string): boolean {
++	if (host === pattern) {
++		return true;
++	}
++	if (pattern.includes("*") || pattern.includes("?")) {
++		try {
++			return wildcardMatch(pattern, ".")(host);
++		} catch {
++			return false;
++		}
++	}
++	return false;
++}
++
++/**
++ * Resolves the per-request origin (without path) for a dynamic baseURL
++ * configuration based on the incoming request's host headers.
++ *
++ * - Validates the request host against `allowedHosts` (exact + wildcard).
++ * - When the host is not allowed and a `fallback` is configured, the fallback
++ *   origin is returned.
++ * - When the host is not allowed and no `fallback` is configured, throws a
++ *   `BetterAuthError` naming the rejected host.
++ * - The optional `protocol` config takes precedence over `x-forwarded-proto`.
++ */
++export function resolveDynamicBaseURL(
++	config: DynamicBaseURL,
++	request: Request,
++): string {
++	assertValidDynamicBaseURL(config);
++
++	const forwardedHost = request.headers.get("x-forwarded-host");
++	const forwardedProto = request.headers.get("x-forwarded-proto");
++
++	let host: string | null = null;
++	if (forwardedHost && validateProxyHeader(forwardedHost, "host")) {
++		host = forwardedHost.trim();
++	} else {
++		host = getHost(request.url);
++	}
++
++	const isAllowed =
++		!!host && config.allowedHosts.some((p) => hostMatchesPattern(host!, p));
++
++	if (!isAllowed) {
++		if (config.fallback) {
++			return getOrigin(config.fallback) || config.fallback;
++		}
++		throw new BetterAuthError(
++			`Request host "${host ?? "unknown"}" is not in the configured baseURL.allowedHosts list and no fallback is configured.`,
++		);
++	}
++
++	let protocol = config.protocol;
++	if (!protocol) {
++		if (forwardedProto && validateProxyHeader(forwardedProto, "proto")) {
++			protocol = forwardedProto as "http" | "https";
++		} else {
++			const reqProtocol = getProtocol(request.url);
++			protocol = reqProtocol === "http:" ? "http" : "https";
++		}
++	}
++
++	return `${protocol}://${host}`;
++}
++
++/**
++ * Computes the list of trusted origins implied by a dynamic baseURL
++ * configuration. Every allowed host becomes `https://<host>` (localhost
++ * entries also pick up the `http://` variant for local development), and the
++ * fallback origin (if any) is included.
++ *
++ * Wildcard patterns are preserved as-is (prefixed with the scheme) so they can
++ * still be matched against by the trusted-origins logic.
++ */
++export function getDynamicTrustedOrigins(config: DynamicBaseURL): string[] {
++	const origins = new Set<string>();
++	for (const entry of config.allowedHosts) {
++		origins.add(`https://${entry}`);
++		const hostname = entry.split(":")[0];
++		if (hostname === "localhost" || hostname === "127.0.0.1") {
++			origins.add(`http://${entry}`);
++		}
++	}
++	if (config.fallback) {
++		const origin = getOrigin(config.fallback) || config.fallback;
++		origins.add(origin);
++	}
++	return [...origins];
++}
++
++/**
++ * Returns the static-string form of the configured `baseURL` option, or
++ * `undefined` when the dynamic (per-request) configuration shape is used.
++ *
++ * By the time request handlers run, `options.baseURL` has always been resolved
++ * to a concrete origin string, so consumers that previously read
++ * `options.baseURL` as a string should use this helper to stay type-safe with
++ * the extended (string | DynamicBaseURL) option type.
++ */
++export function getStaticBaseURL(
++	baseURL: string | DynamicBaseURL | undefined,
++): string | undefined {
++	return typeof baseURL === "string" ? baseURL : undefined;
++}
+diff --git a/packages/core/src/types/index.ts b/packages/core/src/types/index.ts
+index 86170ccac..af7f54d59 100644
+--- a/packages/core/src/types/index.ts
++++ b/packages/core/src/types/index.ts
+@@ -20,6 +20,7 @@ export type {
+ 	BetterAuthRateLimitOptions,
+ 	BetterAuthRateLimitRule,
+ 	BetterAuthRateLimitStorage,
++	DynamicBaseURL,
+ 	GenerateIdFn,
+ 	StoreIdentifierOption,
+ } from "./init-options";
+diff --git a/packages/core/src/types/init-options.ts b/packages/core/src/types/init-options.ts
+index 4435b97e7..78ffcf06f 100644
+--- a/packages/core/src/types/init-options.ts
++++ b/packages/core/src/types/init-options.ts
+@@ -334,6 +334,42 @@ export type BetterAuthAdvancedOptions = {
+ 	skipTrailingSlashes?: boolean;
+ };
+ 
++/**
++ * Dynamic baseURL configuration.
++ *
++ * Instead of pinning a single static `baseURL` at startup, this lets each
++ * request resolve its own origin from the (proxy) host headers
++ * (`x-forwarded-host` / `x-forwarded-proto`). This is useful for deployments
++ * that serve multiple domains from the same process (e.g. a Vercel project
++ * serving its canonical domain alongside rotating preview URLs).
++ */
++export type DynamicBaseURL = {
++	/**
++	 * The list of hosts that are allowed to be resolved as the per-request
++	 * origin. Each entry may either be an exact host (optionally including a
++	 * port, e.g. `myapp.com` or `localhost:3000`) or a wildcard pattern
++	 * (e.g. `*.vercel.app` or `preview-*.myapp.com`).
++	 *
++	 * Every allowed host is automatically added to `trustedOrigins`.
++	 *
++	 * Configuring an empty list is treated as a configuration error.
++	 */
++	allowedHosts: string[];
++	/**
++	 * Optional fallback origin used when an incoming request host is not in
++	 * `allowedHosts`. When set, requests with an unknown host resolve to this
++	 * origin instead of being rejected.
++	 *
++	 * @example "https://myapp.com"
++	 */
++	fallback?: string | undefined;
++	/**
++	 * Optionally force the resolved scheme. When set, this takes precedence
++	 * over the request's `x-forwarded-proto` header.
++	 */
++	protocol?: "http" | "https" | undefined;
++};
++
+ export type BetterAuthOptions = {
+ 	/**
+ 	 * The name of the application
+@@ -350,8 +386,26 @@ export type BetterAuthOptions = {
+ 	 * the system will check the following environment variable:
+ 	 *
+ 	 * process.env.BETTER_AUTH_URL
++	 *
++	 * You can also pass a dynamic baseURL configuration to support
++	 * deployments that serve multiple domains from the same process
++	 * (e.g. a Vercel project serving its canonical domain alongside
++	 * rotating preview URLs). In that case each request resolves its own
++	 * origin from the (proxy) host headers, validated against
++	 * `allowedHosts`.
++	 *
++	 * @example
++	 * ```ts
++	 * baseURL: {
++	 *   allowedHosts: ["myapp.com", "www.myapp.com", "*.vercel.app"],
++	 *   // optional fallback origin used when the request host isn't allowed
++	 *   fallback: "https://myapp.com",
++	 *   // optional, forces the resolved scheme regardless of x-forwarded-proto
++	 *   protocol: "https",
++	 * }
++	 * ```
+ 	 */
+-	baseURL?: string | undefined;
++	baseURL?: string | DynamicBaseURL | undefined;
+ 	/**
+ 	 * Base path for the Better Auth. This is typically
+ 	 * the path where the
+diff --git a/packages/telemetry/src/index.ts b/packages/telemetry/src/index.ts
+index f9e9a7409..afe503c11 100644
+--- a/packages/telemetry/src/index.ts
++++ b/packages/telemetry/src/index.ts
+@@ -59,7 +59,9 @@ export async function createTelemetry(
+ 	let anonymousId: string | undefined;
+ 
+ 	if (enabled) {
+-		anonymousId = await getProjectId(options.baseURL);
++		anonymousId = await getProjectId(
++			typeof options.baseURL === "string" ? options.baseURL : undefined,
++		);
+ 
+ 		const payload = {
+ 			config: await getTelemetryAuthConfig(options, context),
+@@ -78,7 +80,9 @@ export async function createTelemetry(
+ 		publish: async (event: TelemetryEvent) => {
+ 			if (!enabled) return;
+ 			if (!anonymousId) {
+-				anonymousId = await getProjectId(options.baseURL);
++				anonymousId = await getProjectId(
++					typeof options.baseURL === "string" ? options.baseURL : undefined,
++				);
+ 			}
+ 			await track({
+ 				type: event.type,

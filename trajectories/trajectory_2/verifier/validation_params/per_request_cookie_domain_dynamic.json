@@ -1,0 +1,31 @@
+{
+  "story_id": "per_request_cookie_domain_dynamic",
+  "test_cases": [
+    {
+      "inputs": {
+        "allowed_hosts": [
+          "auth.example1.com",
+          "auth.example2.com"
+        ],
+        "first_host": "auth.example1.com",
+        "second_host": "auth.example2.com"
+      },
+      "expected": {
+        "unique_domains_json": "[\"auth.example1.com\",\"auth.example2.com\"]"
+      }
+    },
+    {
+      "inputs": {
+        "allowed_hosts": [
+          "tenant-a.test",
+          "tenant-b.test"
+        ],
+        "first_host": "tenant-a.test",
+        "second_host": "tenant-b.test"
+      },
+      "expected": {
+        "unique_domains_json": "[\"tenant-a.test\",\"tenant-b.test\"]"
+      }
+    }
+  ]
+}

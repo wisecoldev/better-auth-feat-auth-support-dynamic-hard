@@ -1,0 +1,108 @@
+{
+  "id": "39e20247-ebb7-4223-b186-de1ce50f37aa",
+  "task_name": "better-auth-feat-auth-support-dynamic-hard",
+  "trial_name": "better-auth-feat-auth-support-dy__BYLXBeN",
+  "trial_uri": "file:///tmp/staff-bench/_leaderboard/20260531-050932/jobs/opus-48-mini-swe/2026-05-31__13-48-39/better-auth-feat-auth-support-dy__BYLXBeN",
+  "task_id": {
+    "path": "/tmp/staff-bench/_leaderboard/20260531-050932/dataset/better-auth-feat-auth-support-dynamic-hard"
+  },
+  "source": "dataset",
+  "task_checksum": "acd3f80572b5a041905291bdd452c306c2b60b07dedf846b0efe869ae68d5337",
+  "config": {
+    "task": {
+      "path": "/tmp/staff-bench/_leaderboard/20260531-050932/dataset/better-auth-feat-auth-support-dynamic-hard",
+      "git_url": null,
+      "git_commit_id": null,
+      "name": null,
+      "ref": null,
+      "overwrite": false,
+      "download_dir": null,
+      "source": "dataset"
+    },
+    "trial_name": "better-auth-feat-auth-support-dy__BYLXBeN",
+    "trials_dir": "/tmp/staff-bench/_leaderboard/20260531-050932/jobs/opus-48-mini-swe/2026-05-31__13-48-39",
+    "timeout_multiplier": 3.0,
+    "agent_timeout_multiplier": null,
+    "verifier_timeout_multiplier": null,
+    "agent_setup_timeout_multiplier": null,
+    "environment_build_timeout_multiplier": null,
+    "agent": {
+      "name": "mini-swe-agent",
+      "import_path": null,
+      "model_name": "openai/@bedrock/global.anthropic.claude-opus-4-8",
+      "override_timeout_sec": null,
+      "override_setup_timeout_sec": null,
+      "max_timeout_sec": null,
+      "kwargs": {
+        "version": "2.3.0",
+        "config_file": "/tmp/staff-bench/_leaderboard/20260531-050932/jobs/opus-48-mini-swe/mswea-effort.yaml"
+      },
+      "env": {}
+    },
+    "environment": {
+      "type": "modal",
+      "import_path": null,
+      "force_build": false,
+      "delete": true,
+      "override_cpus": null,
+      "override_memory_mb": null,
+      "override_storage_mb": null,
+      "override_gpus": null,
+      "suppress_override_warnings": false,
+      "mounts_json": null,
+      "env": {},
+      "kwargs": {
+        "app_name": "__harbor_senior-swe__",
+        "sandbox_timeout_secs": 21600,
+        "sandbox_idle_timeout_secs": 3600
+      }
+    },
+    "verifier": {
+      "override_timeout_sec": null,
+      "max_timeout_sec": null,
+      "disable": false
+    },
+    "artifacts": [],
+    "job_id": "2d12e5a4-07ea-44c4-a464-be1c72b4fab1"
+  },
+  "agent_info": {
+    "name": "mini-swe-agent",
+    "version": "2.3.0",
+    "model_info": {
+      "name": "@bedrock/global.anthropic.claude-opus-4-8",
+      "provider": "openai"
+    }
+  },
+  "agent_result": {
+    "n_input_tokens": 9065961,
+    "n_cache_tokens": 0,
+    "n_output_tokens": 195749,
+    "cost_usd": 0.0,
+    "rollout_details": null,
+    "metadata": null
+  },
+  "verifier_result": {
+    "rewards": {
+      "reward": 1.0
+    }
+  },
+  "exception_info": null,
+  "started_at": "2026-06-01T12:01:04.325963Z",
+  "finished_at": "2026-06-01T12:58:52.940313Z",
+  "environment_setup": {
+    "started_at": "2026-06-01T12:01:04.330396Z",
+    "finished_at": "2026-06-01T12:01:08.116800Z"
+  },
+  "agent_setup": {
+    "started_at": "2026-06-01T12:01:08.116815Z",
+    "finished_at": "2026-06-01T12:01:21.904129Z"
+  },
+  "agent_execution": {
+    "started_at": "2026-06-01T12:01:21.904185Z",
+    "finished_at": "2026-06-01T12:50:11.949487Z"
+  },
+  "verifier": {
+    "started_at": "2026-06-01T12:50:15.593444Z",
+    "finished_at": "2026-06-01T12:58:50.579688Z"
+  }
+}

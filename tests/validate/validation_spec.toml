@@ -1,0 +1,598 @@
+stack_profile = "typescript-library"
+
+[settings]
+script_timeout_sec = 600
+cc_timeout_sec = 1800
+
+[settings.jest]
+runner = "vitest"
+config_dir = ""
+test_parent = "packages/better-auth/src/auth"
+command = "npx vitest run --reporter=verbose"
+
+instructions = """
+This task is the better-auth TypeScript library. Validation runs each
+story by writing a vitest test file that drives the better-auth in-repo
+auth flow and asserts on its observable outcome via the
+pre-existing `before` hook + `client.$fetch("/ok", ...)` pattern.
+The "jest" driver below wraps vitest — the runner, output parsing,
+and parameter injection are all handled for you.
+
+## File names and locations
+
+For each story you must create a file named `<story-id>.test.ts` in
+the scripts directory the validator places you in. The driver copies
+your file to:
+
+  /repo/better-auth/packages/better-auth/src/auth/__validation__/<story-id>.test.ts
+
+and runs `npx vitest run --reporter=verbose <path> --testTimeout=...`
+from the workspace root `/repo/better-auth/`. Running from the root
+activates the `dev-source` SSR resolve condition so workspace imports
+resolve to `src/*.ts` directly (no build step required).
+
+Because your file lives 2 directories below `packages/better-auth/src/`,
+relative imports look like:
+
+  import { getTestInstance } from "../../test-utils/test-instance";
+  import { createAuthClient } from "../../client";
+
+`createAuthMiddleware` lives in `@better-auth/core/api`:
+
+  import { createAuthMiddleware } from "@better-auth/core/api";
+
+These three modules are pre-existing — do not invent new module names.
+The pre-fix codebase already uses this exact triplet of imports in
+`packages/better-auth/src/auth/full.test.ts` (see the "auth with
+trusted proxy headers" describe block). Mirror that file's pattern.
+
+## Required test-file skeleton
+
+ALWAYS use this skeleton — it embeds the parameter helper and the
+case-naming convention the driver's parser recognises. CRITICAL: keep
+`case $#` in `it.each` so per-case results get reported correctly.
+
+```ts
+// @ts-nocheck
+import { createAuthMiddleware } from "@better-auth/core/api";
+import { describe, expect, it } from "vitest";
+import { createAuthClient } from "../../client";
+import { getTestInstance } from "../../test-utils/test-instance";
+
+import { getTestCases } from "./validationParams";
+
+describe("<story-id>", () => {
+  const cases = getTestCases();
+  it.each(cases)("case $#", async ({ inputs, expected }) => {
+    // ... per-story body, see procedure ...
+  }, 60_000);
+});
+```
+
+## Pattern for capturing AuthContext fields per request
+
+Most stories configure a `before` hook on `getTestInstance(...)` that
+captures the per-request fields you need to assert against. The
+canonical pattern (already used by pre-fix tests in
+`packages/better-auth/src/auth/full.test.ts:73-127`):
+
+```ts
+let captured: { baseURL?: string; optionsBaseURL?: unknown; trustedOrigins?: string[]; cookieDomain?: string } = {};
+const { customFetchImpl } = await getTestInstance({
+  baseURL: <story-specific value>,
+  hooks: {
+    before: createAuthMiddleware(async (ctx) => {
+      captured.baseURL = ctx.context.baseURL;
+      captured.optionsBaseURL = ctx.context.options.baseURL;
+      captured.trustedOrigins = [...(ctx.context.trustedOrigins ?? [])];
+      const dom = ctx.context.authCookies?.sessionToken?.attributes?.domain;
+      if (typeof dom === "string") captured.cookieDomain = dom;
+    }),
+  },
+});
+const client = createAuthClient({
+  baseURL: "http://localhost:3000",
+  fetchOptions: { customFetchImpl },
+});
+await client.$fetch("/ok", {
+  headers: {
+    "x-forwarded-host": <story-specific>,
+    "x-forwarded-proto": "https",
+  },
+});
+```
+
+The `/ok` path is a stock unmatched-route; the framework's
+`before` hook still fires, populating `captured` before the
+response. Whether the response itself is a 404 or 200 is
+not what stories assert — assertions are on the captured fields.
+
+## Catching errors / rejections
+
+Some stories assert that a request `auth.handler(req)` REJECTS (the
+disallowed-host story) or that `getTestInstance(...)` ITSELF rejects
+(empty allowedHosts). Use this pattern:
+
+```ts
+let initError: unknown = null;
+let runtimeError: unknown = null;
+let instance: any = null;
+try {
+  instance = await getTestInstance({ baseURL: <story-specific> });
+} catch (e) { initError = e; }
+
+if (!initError && instance) {
+  try {
+    await instance.auth.handler(
+      new Request("http://localhost:3000/api/auth/ok", {
+        method: "GET",
+        headers: {
+          "x-forwarded-host": <story-specific>,
+          "x-forwarded-proto": "https",
+        },
+      }),
+    );
+  } catch (e) { runtimeError = e; }
+}
+
+const errorMessageLower = String(
+  (initError as Error | null)?.message ??
+  (runtimeError as Error | null)?.message ?? ""
+).toLowerCase();
+```
+
+Then assert on `errorMessageLower` (case-insensitive substring match).
+
+## Critical rules
+
+- DO NOT modify any source under `/repo/better-auth/packages/`. The
+  validator runs `git diff` after validation; ANY modification zeros
+  the score. Only your test file under `__validation__/` is allowed.
+- ALWAYS `// @ts-nocheck` at the top of the test file. Stories
+  configure `baseURL` with the dynamic-config object shape, which
+  the agent's implementation defines in the public types — your
+  test file would otherwise fight the public type while the
+  implementation is in flight.
+- USE `it.each(cases)("case $#", ...)` — the driver's parser keys off
+  `case 0`, `case 1`, etc. to map results back to test cases.
+- USE `getTestCases()` from `./validationParams` to pull per-case
+  inputs and expected values; never hardcode them.
+- The repo's existing test pattern in
+  `packages/better-auth/src/auth/full.test.ts:73-127` shows the exact
+  `getTestInstance` + `before: createAuthMiddleware` +
+  `client.$fetch("/ok", { headers })` pattern in working form. When
+  in doubt, mirror it — only the `baseURL` config shape and the
+  assertions change.
+"""
+
+
+# =============================================================================
+# Story 1: empty allowedHosts is rejected. Either at construction time
+# (preferred — fail-fast) or on the first request that exercises the
+# dynamic resolver. Validates init-time / first-request validation of
+# the new option's required field.
+# =============================================================================
+
+[[story]]
+id = "empty_allowed_hosts_rejected"
+driver = "jest"
+description = """
+Configuring the dynamic baseURL with an empty allowed-hosts list is
+treated as a configuration error. Either creating the auth instance
+or the very first request through it must surface an error whose
+message names the empty allowed-hosts field.
+"""
+procedure = """
+Try to construct a fresh `getTestInstance` configured so the dynamic
+baseURL has `allowedHosts: inputs.allowed_hosts`. Capture any
+synchronous error from that construction.
+
+If construction succeeded, then issue a single
+`auth.handler(new Request("http://localhost:3000/api/auth/ok", {
+method: "GET", headers: { "x-forwarded-host":
+inputs.followup_request_host, "x-forwarded-proto": "https" } }))` call
+and capture any error from that.
+
+Compute `errorMessageLower` as the lowercased message of whichever
+error surfaced first (init or runtime), or `"<no_error>"` if no
+error was raised at either stage.
+
+Compute `errorMessageLowerSubstringMatch` as
+`errorMessageLower.includes(inputs.required_substring) ? inputs.required_substring : errorMessageLower`
+— when the required substring is present, returns the substring
+itself; when not, returns the full lowercased message so the
+assertion failure exposes what the error actually said.
+
+Assert:
+- EXPECTED: expected.error_message_lower_substring_match equals errorMessageLowerSubstringMatch
+"""
+
+[[story.test_case]]
+[story.test_case.inputs]
+allowed_hosts = []
+followup_request_host = "anyhost.example.com"
+required_substring = "allowedhosts"
+[story.test_case.expected]
+error_message_lower_substring_match = "allowedhosts"
+
+[[story.test_case]]
+[story.test_case.inputs]
+allowed_hosts = []
+followup_request_host = "another.test"
+required_substring = "allowed"
+[story.test_case.expected]
+error_message_lower_substring_match = "allowed"
+
+
+# =============================================================================
+# Story 2: a request bearing `x-forwarded-host` matching an entry in
+# `allowedHosts` resolves the per-request baseURL to that host.
+# Validates the happy-path: dynamic resolution returns the request's
+# host (with the proxy-derived scheme) when the host is allowed.
+# =============================================================================
+
+[[story]]
+id = "allowed_exact_host_resolves"
+driver = "jest"
+description = """
+A request that arrives via a proxy whose `x-forwarded-host` value
+matches an exact entry in the configured allow-list is treated as
+that host: the per-request baseURL exposed to the auth middleware is
+`https://<that-host>/api/auth`, with the scheme derived from
+`x-forwarded-proto`.
+"""
+procedure = """
+Build a `getTestInstance` with `baseURL: { allowedHosts: inputs.allowed_hosts }`
+and a `before` hook that captures `ctx.context.baseURL` and
+`ctx.context.options.baseURL` into local variables on each call.
+Issue a single `client.$fetch("/ok", { headers: { "x-forwarded-host":
+inputs.forwarded_host, "x-forwarded-proto": inputs.forwarded_proto } })`.
+
+After the request, assert:
+- EXPECTED: capturedBaseURL equals expected.captured_base_url
+  (the resolved per-request baseURL with `/api/auth` suffix)
+- EXPECTED: capturedOptionsBaseURL equals expected.captured_options_base_url
+  (the resolved origin string visible from `ctx.context.options.baseURL`;
+  always a string after resolution)
+"""
+
+[[story.test_case]]
+[story.test_case.inputs]
+allowed_hosts = ["myapp.com"]
+forwarded_host = "myapp.com"
+forwarded_proto = "https"
+[story.test_case.expected]
+captured_base_url = "https://myapp.com/api/auth"
+captured_options_base_url = "https://myapp.com"
+
+[[story.test_case]]
+[story.test_case.inputs]
+allowed_hosts = ["app.example.com", "auth.example.com"]
+forwarded_host = "auth.example.com"
+forwarded_proto = "https"
+[story.test_case.expected]
+captured_base_url = "https://auth.example.com/api/auth"
+captured_options_base_url = "https://auth.example.com"
+
+
+# =============================================================================
+# Story 3: a request from a host NOT in `allowedHosts` (no fallback) is
+# rejected by the handler. Validates the security boundary.
+# =============================================================================
+
+[[story]]
+id = "disallowed_host_without_fallback_throws"
+driver = "jest"
+description = """
+A request whose host is not in the configured allow-list and where no
+fallback is configured is rejected by `auth.handler`. The rejection
+message must name the rejected host so operators can diagnose proxy /
+domain-config mismatches.
+"""
+procedure = """
+Build a `getTestInstance` with `baseURL: { allowedHosts: inputs.allowed_hosts }`
+(no `fallback`). Then call
+
+  await auth.handler(
+    new Request("http://localhost:3000/api/auth/ok", {
+      method: "GET",
+      headers: {
+        "x-forwarded-host": inputs.forwarded_host,
+        "x-forwarded-proto": "https",
+      },
+    }),
+  );
+
+inside a `try { ... } catch (e) { ... }`. Capture the lowercased
+error message into `errorMessageLower` (`"<no_error>"` if no error
+raised).
+
+Assert:
+- EXPECTED: errorMessageLowerHostMatch equals expected.error_message_lower_host_match
+  where errorMessageLowerHostMatch is
+  `errorMessageLower.includes(inputs.forwarded_host.toLowerCase()) ? inputs.forwarded_host.toLowerCase() : errorMessageLower`
+  (when matched, returns the host substring itself — proves the
+  rejected host is named in the message; when not matched, returns
+  the full lowercased message — exposes what the error actually said)
+"""
+
+[[story.test_case]]
+[story.test_case.inputs]
+allowed_hosts = ["myapp.com"]
+forwarded_host = "evil.com"
+[story.test_case.expected]
+error_message_lower_host_match = "evil.com"
+
+[[story.test_case]]
+[story.test_case.inputs]
+allowed_hosts = ["app.example.com"]
+forwarded_host = "intruder.test"
+[story.test_case.expected]
+error_message_lower_host_match = "intruder.test"
+
+
+# =============================================================================
+# Story 4: wildcard host patterns in `allowedHosts` match. `*.vercel.app`
+# allows any subdomain; `preview-*.myapp.com` allows preview-* subdomains.
+# Validates wildcard host pattern matching.
+# =============================================================================
+
+[[story]]
+id = "wildcard_host_pattern_matches"
+driver = "jest"
+description = """
+Wildcard patterns in the allow-list match the corresponding hosts.
+A pattern like `*.vercel.app` matches any subdomain
+(`my-feature.vercel.app`, `preview-123.vercel.app`, etc.); a pattern
+like `preview-*.myapp.com` matches preview-prefixed subdomains.
+"""
+procedure = """
+Build a `getTestInstance` with `baseURL: { allowedHosts:
+inputs.allowed_hosts }` and a `before` hook capturing
+`ctx.context.baseURL` into a local variable on each call. Issue
+`client.$fetch("/ok", { headers: { "x-forwarded-host":
+inputs.forwarded_host, "x-forwarded-proto": "https" } })`.
+
+After the request, assert:
+- EXPECTED: capturedBaseURL equals expected.captured_base_url
+  (the resolved per-request baseURL, with the wildcard pattern
+  having matched the literal host)
+"""
+
+[[story.test_case]]
+[story.test_case.inputs]
+allowed_hosts = ["*.vercel.app", "preview-*.myapp.com"]
+forwarded_host = "my-app-abc.vercel.app"
+[story.test_case.expected]
+captured_base_url = "https://my-app-abc.vercel.app/api/auth"
+
+[[story.test_case]]
+[story.test_case.inputs]
+allowed_hosts = ["*.vercel.app", "preview-*.myapp.com"]
+forwarded_host = "preview-feature.myapp.com"
+[story.test_case.expected]
+captured_base_url = "https://preview-feature.myapp.com/api/auth"
+
+
+# =============================================================================
+# Story 5: when the request's host is not in `allowedHosts` but a
+# `fallback` URL is configured, the resolver uses the fallback.
+# Validates the fallback escape hatch.
+# =============================================================================
+
+[[story]]
+id = "fallback_used_for_disallowed_host"
+driver = "jest"
+description = """
+When a request's host is not in the allow-list AND a `fallback` URL
+is configured on the dynamic baseURL, the resolver uses the fallback
+as the per-request origin instead of rejecting.
+"""
+procedure = """
+Build a `getTestInstance` with `baseURL: { allowedHosts:
+inputs.allowed_hosts, fallback: inputs.fallback }` and a `before`
+hook capturing `ctx.context.baseURL` into a local variable on each
+call. Issue `client.$fetch("/ok", { headers: { "x-forwarded-host":
+inputs.forwarded_host, "x-forwarded-proto": "https" } })`.
+
+After the request, assert:
+- EXPECTED: capturedBaseURL equals expected.captured_base_url
+  (the FALLBACK URL with `/api/auth` suffix — proves the resolver
+  fell back rather than throwing)
+"""
+
+[[story.test_case]]
+[story.test_case.inputs]
+allowed_hosts = ["myapp.com"]
+fallback = "https://myapp.com"
+forwarded_host = "evil.com"
+[story.test_case.expected]
+captured_base_url = "https://myapp.com/api/auth"
+
+[[story.test_case]]
+[story.test_case.inputs]
+allowed_hosts = ["only-this.example.com"]
+fallback = "https://canonical.example.com"
+forwarded_host = "another.intruder.test"
+[story.test_case.expected]
+captured_base_url = "https://canonical.example.com/api/auth"
+
+
+# =============================================================================
+# Story 6: `protocol: "https"` overrides `x-forwarded-proto: "http"`.
+# Validates the explicit protocol-override config.
+# =============================================================================
+
+[[story]]
+id = "protocol_config_overrides_proxy_proto"
+driver = "jest"
+description = """
+The optional `protocol` config on the dynamic baseURL takes
+precedence over the request's `x-forwarded-proto` header. When
+`protocol: "https"` is set, the resolved scheme is always `https://`,
+even if the proxy chain reports `http`.
+"""
+procedure = """
+Build a `getTestInstance` with `baseURL: { allowedHosts:
+inputs.allowed_hosts, protocol: inputs.protocol }` and a `before`
+hook capturing `ctx.context.baseURL` into a local variable on each
+call. Issue `client.$fetch("/ok", { headers: { "x-forwarded-host":
+inputs.forwarded_host, "x-forwarded-proto": inputs.forwarded_proto } })`.
+
+After the request, assert:
+- EXPECTED: capturedBaseURL equals expected.captured_base_url
+  (the resolved baseURL has the configured scheme — overrides the
+  conflicting proxy-proto header)
+"""
+
+[[story.test_case]]
+[story.test_case.inputs]
+allowed_hosts = ["myapp.com"]
+protocol = "https"
+forwarded_host = "myapp.com"
+forwarded_proto = "http"
+[story.test_case.expected]
+captured_base_url = "https://myapp.com/api/auth"
+
+[[story.test_case]]
+[story.test_case.inputs]
+allowed_hosts = ["api.example.com"]
+protocol = "https"
+forwarded_host = "api.example.com"
+forwarded_proto = "http"
+[story.test_case.expected]
+captured_base_url = "https://api.example.com/api/auth"
+
+
+# =============================================================================
+# Story 7: `trustedOrigins` is auto-expanded from `allowedHosts` so
+# wildcard hosts and fallback origins are CSRF-trusted by default.
+# Localhost entries get both `http://` and `https://` variants so
+# local development isn't broken (dev server typically uses http).
+# =============================================================================
+
+[[story]]
+id = "trusted_origins_includes_all_allowed_hosts"
+driver = "jest"
+description = """
+Configuring the dynamic baseURL automatically extends the
+`trustedOrigins` list with every entry in `allowedHosts`, so any
+allowed host is also a trusted origin. Each host appears as
+`https://<host>` in `trustedOrigins`. Localhost entries pick up both
+`https://` and `http://` variants since local development typically
+runs on plain HTTP. If `fallback` is set, its origin is also included.
+"""
+procedure = """
+Build a `getTestInstance` with `baseURL: { allowedHosts:
+inputs.allowed_hosts, fallback: inputs.fallback }` and a `before`
+hook capturing `ctx.context.trustedOrigins` (snapshot via
+`[...ctx.context.trustedOrigins]`) into a local variable on each
+call. Issue one `client.$fetch("/ok", { headers: { "x-forwarded-host":
+inputs.forwarded_host, "x-forwarded-proto": "https" } })`.
+
+After the request, compute `requiredOriginsPresentJson` — the
+JSON-encoded subset of `inputs.required_origins` that IS present in
+`trustedOrigins`, lexicographically sorted:
+  requiredOriginsPresentJson = JSON.stringify(
+    inputs.required_origins.filter((o) => trustedOrigins.includes(o)).sort()
+  )
+
+If every required origin is present, `requiredOriginsPresentJson`
+exactly equals JSON.stringify of the sorted required-origins list
+itself. If any origin is missing, the assertion failure shows the
+incomplete subset that WAS present.
+
+Assert:
+- EXPECTED: expected.required_origins_present_json equals requiredOriginsPresentJson
+"""
+
+[[story.test_case]]
+[story.test_case.inputs]
+allowed_hosts = ["myapp.com", "*.vercel.app", "localhost:3000"]
+fallback = "https://fallback.example.com"
+forwarded_host = "myapp.com"
+required_origins = [
+  "https://myapp.com",
+  "https://*.vercel.app",
+  "https://localhost:3000",
+  "http://localhost:3000",
+  "https://fallback.example.com",
+]
+[story.test_case.expected]
+required_origins_present_json = "[\"http://localhost:3000\",\"https://*.vercel.app\",\"https://fallback.example.com\",\"https://localhost:3000\",\"https://myapp.com\"]"
+
+[[story.test_case]]
+[story.test_case.inputs]
+# Same shape, second case uses different host names + a different
+# fallback URL — exercises that the trustedOrigins expansion uses
+# the actual configured values rather than a hardcoded set, and that
+# the request can arrive from a wildcard-matched host as well as the
+# canonical one.
+allowed_hosts = ["app.example.com", "*.preview.dev", "localhost:4000"]
+fallback = "https://canonical.example.com"
+forwarded_host = "feature-x.preview.dev"
+required_origins = [
+  "https://app.example.com",
+  "https://*.preview.dev",
+  "https://localhost:4000",
+  "http://localhost:4000",
+  "https://canonical.example.com",
+]
+[story.test_case.expected]
+required_origins_present_json = "[\"http://localhost:4000\",\"https://*.preview.dev\",\"https://app.example.com\",\"https://canonical.example.com\",\"https://localhost:4000\"]"
+
+
+# =============================================================================
+# Story 8: with crossSubDomainCookies enabled and a dynamic baseURL,
+# the cookie's `Domain=` attribute is recomputed per-request to match
+# the resolved host. Validates that the cookie getter is recomputed
+# per request (not frozen at init).
+# =============================================================================
+
+[[story]]
+id = "per_request_cookie_domain_dynamic"
+driver = "jest"
+description = """
+With cross-subdomain cookies enabled and a dynamic baseURL, two
+sequential requests from different allowed hosts produce different
+cookie `Domain=` attributes — each matching the request's resolved
+host.
+"""
+procedure = """
+Build a `getTestInstance` with `baseURL: { allowedHosts:
+inputs.allowed_hosts, protocol: "https" }` AND `advanced: {
+crossSubDomainCookies: { enabled: true } }`. Add a `before` hook that
+appends `ctx.context.authCookies.sessionToken.attributes.domain` to
+a local `capturedDomains: string[]` array on every call (skip when the
+domain is not a string).
+
+Issue two SEQUENTIAL `client.$fetch("/ok", { headers })` requests:
+- First with `x-forwarded-host: inputs.first_host`, `x-forwarded-proto: https`
+- Then  with `x-forwarded-host: inputs.second_host`, `x-forwarded-proto: https`
+
+After both requests, compute the unique domains observed and the
+specific captured domains:
+  uniqueDomainsJson = JSON.stringify([...new Set(capturedDomains)].sort())
+
+Assert:
+- EXPECTED: uniqueDomainsJson equals expected.unique_domains_json
+  (a JSON array containing both expected hosts, sorted — proves the
+  cookie getter is recomputed per request and produces a different
+  domain on each request, not a single frozen domain)
+"""
+
+[[story.test_case]]
+[story.test_case.inputs]
+allowed_hosts = ["auth.example1.com", "auth.example2.com"]
+first_host = "auth.example1.com"
+second_host = "auth.example2.com"
+[story.test_case.expected]
+unique_domains_json = "[\"auth.example1.com\",\"auth.example2.com\"]"
+
+[[story.test_case]]
+[story.test_case.inputs]
+allowed_hosts = ["tenant-a.test", "tenant-b.test"]
+first_host = "tenant-a.test"
+second_host = "tenant-b.test"
+[story.test_case.expected]
+unique_domains_json = "[\"tenant-a.test\",\"tenant-b.test\"]"

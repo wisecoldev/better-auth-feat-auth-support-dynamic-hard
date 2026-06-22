@@ -1,0 +1,66 @@
+{
+  "task": {
+    "path": "leaderboard/2026-06-07/dataset-gpt55-100/better-auth-feat-auth-support-dynamic-hard",
+    "git_url": null,
+    "git_commit_id": null,
+    "name": null,
+    "ref": null,
+    "overwrite": false,
+    "download_dir": null,
+    "source": "dataset-gpt55-100"
+  },
+  "trial_name": "better-auth-feat-auth-support-dy__AnkTsw4",
+  "trials_dir": "leaderboard/2026-06-07/jobs/gpt-5-5-mini-swe/2026-06-10__06-06-54",
+  "timeout_multiplier": 4.0,
+  "agent_timeout_multiplier": null,
+  "verifier_timeout_multiplier": null,
+  "agent_setup_timeout_multiplier": null,
+  "environment_build_timeout_multiplier": null,
+  "agent": {
+    "name": "mini-swe-agent",
+    "import_path": null,
+    "model_name": "openai/@openai/gpt-5.5",
+    "skills": [],
+    "override_timeout_sec": null,
+    "override_setup_timeout_sec": null,
+    "max_timeout_sec": null,
+    "extra_allowed_hosts": [],
+    "kwargs": {
+      "version": "2.3.0",
+      "config_file": "leaderboard/2026-06-07/jobs/gpt-5-5-mini-swe/mswea-effort.yaml"
+    },
+    "env": {},
+    "mcp_servers": []
+  },
+  "environment": {
+    "type": "modal",
+    "import_path": null,
+    "force_build": false,
+    "delete": true,
+    "cpu_enforcement_policy": "ignore",
+    "memory_enforcement_policy": "ignore",
+    "override_cpus": null,
+    "override_memory_mb": null,
+    "override_storage_mb": null,
+    "override_gpus": null,
+    "override_tpu": null,
+    "mounts": null,
+    "extra_docker_compose": [],
+    "env": {},
+    "kwargs": {
+      "app_name": "__harbor_senior-swe__",
+      "sandbox_timeout_secs": 50400,
+      "sandbox_idle_timeout_secs": 3600
+    },
+    "extra_allowed_hosts": []
+  },
+  "verifier": {
+    "override_timeout_sec": null,
+    "max_timeout_sec": null,
+    "env": {},
+    "disable": false
+  },
+  "artifacts": [],
+  "extra_instruction_paths": [],
+  "job_id": "e1f783dd-dfdc-4cc1-b19f-65a7b9c3ac6a"
+}

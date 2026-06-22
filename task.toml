@@ -1,0 +1,232 @@
+version = "1.0"
+
+[environment]
+base_image = "better-auth-feat-auth-support-dynamic:latest"
+build_timeout_sec = 1800.0
+cpus = 4
+memory = "4G"
+storage = "20G"
+allow_internet = true
+
+[verifier]
+timeout_sec = 1200.0
+
+[verifier.env]
+ANTHROPIC_API_KEY = "${ANTHROPIC_API_KEY}"
+PORTKEY_API_KEY = "${PORTKEY_API_KEY:-}"
+VAL_AGENT_PORTKEY_KEY = "${VAL_AGENT_PORTKEY_KEY:-}"
+CC_VAL_PORTKEY_KEY = "${CC_VAL_PORTKEY_KEY:-}"
+FORCE_VA_HARNESS = "${FORCE_VA_HARNESS:-}"
+FORCE_VA_MODEL = "${FORCE_VA_MODEL:-}"
+REPO_NAME = "better-auth"
+TIMEOUT_MULTIPLIER = "${TIMEOUT_MULTIPLIER:-1}"
+
+[agent]
+timeout_sec = 7200.0
+
+[solution.env]
+REPO_NAME = "better-auth"
+
+[metadata]
+family = "better-auth-feat-auth-support-dynamic"
+variant = "hard"
+segment = "implementation"
+repo = "better-auth"
+tags = ["better-auth", "typescript-lib"]
+in_benchmark = true
+
+[metadata.narrative]
+description = """Better Auth's `baseURL` option is a single static string today — fine
+for one-domain deployments, broken for any deployment that serves
+several domains from the same process. The motivating shape is a
+Vercel project that lives at `myapp.com`, `www.myapp.com`, and a
+rotating set of preview URLs like `feature-foo-abc123.vercel.app`
+simultaneously. When better-auth has only one static baseURL, every
+non-canonical-domain request gets cookies, OAuth callbacks, and CSRF
+checks pinned to the wrong origin.
+
+Extend `baseURL` to also accept an allowlist-style config object —
+host patterns to allow, an optional fallback URL, and an optional
+explicit protocol. Every incoming request must have its host resolved
+against the allowlist; the rest of better-auth (cookies, trusted
+origins, JWT issuer/audience, plugin URLs, telemetry) must use the
+per-request resolved origin instead of the init-time baseURL.
+
+The static-string config must keep working unchanged.
+"""
+context = """The pre-fix codebase already has a per-request hook in
+`packages/better-auth/src/auth/base.ts` that mutates the AuthContext
+on each call (specifically `ctx.trustedOrigins` and
+`ctx.trustedProviders` are reassigned per-request). That same handler
+is the natural seam for per-request baseURL resolution.
+
+`packages/better-auth/src/utils/url.ts` already houses the
+`getBaseURL(url, path, request, ...)` helper used by the static-string
+path. The wildcard-matching logic for trusted-origins lives in
+`packages/better-auth/src/utils/wildcard.ts` and is consumed by
+`packages/better-auth/src/auth/trusted-origins.ts` — the same
+wildcardMatch utility cleanly powers the new host-pattern matching.
+
+Pre-existing tests at `packages/better-auth/src/auth/full.test.ts`
+(see the `auth with trusted proxy headers` describe block, lines
+73-127 in the pre-fix file) demonstrate the standard test pattern for
+per-request handler behavior: configure `getTestInstance({ ..., hooks:
+{ before: createAuthMiddleware(async (ctx) => { capture; }) } })`,
+issue a request via `client.$fetch("/ok", { headers })`, and observe
+`ctx.context.baseURL` from inside the hook. Validation stories should
+mirror this pattern.
+
+The consumer audit is the broad surface: every place that previously
+read `options.baseURL` as a string and now must safely handle the
+wider type — `packages/better-auth/src/cookies/index.ts` (cookie
+domain + secure flag), `packages/better-auth/src/plugins/jwt/sign.ts`
++ `verify.ts` (issuer/audience claims),
+`packages/better-auth/src/plugins/mcp/index.ts` (issuer in OIDC
+metadata + `withMcpAuth` URL builder),
+`packages/better-auth/src/plugins/oauth-proxy/index.ts` (error URL +
+production URL fallback),
+`packages/better-auth/src/plugins/oidc-provider/index.ts` (token
+issuer), `packages/better-auth/src/integrations/svelte-kit.ts`
+(isAuthPath URL construction),
+`packages/better-auth/src/test-utils/test-instance.ts` (test client
+baseURL), `packages/passkey/src/routes.ts` (rpID derivation),
+`packages/telemetry/src/index.ts` (project ID derivation). Each of
+these consumes a string today; each must safely narrow the new
+union type.
+"""
+solution = """The canonical fix:
+
+1. Adds `DynamicBaseURLConfig` (allowedHosts + fallback? + protocol?)
+   and `BaseURLConfig` (string | DynamicBaseURLConfig) types in
+   `packages/core/src/types/init-options.ts`, re-exported from
+   `packages/core/src/types/index.ts`. Widens
+   `BetterAuthOptions.baseURL` from `string | undefined` to
+   `BaseURLConfig | undefined`.
+
+2. Adds host-pattern matching in
+   `packages/better-auth/src/auth/trusted-origins.ts` (a
+   `matchesHostPattern(host, pattern)` helper that normalizes both
+   sides, strips protocol/path, and routes wildcard patterns through
+   the existing `wildcardMatch` utility, falling back to
+   case-insensitive exact match).
+
+3. Adds in `packages/better-auth/src/utils/url.ts`:
+   - `isDynamicBaseURLConfig` type guard.
+   - `getHostFromRequest(request)` — prefers `x-forwarded-host`,
+     falls back to `host` header, then to `request.url`. Reuses the
+     existing `validateProxyHeader` function so malicious headers
+     fail safely.
+   - `getProtocolFromRequest(request, configProtocol?)` — `http` /
+     `https` from explicit config, else `x-forwarded-proto`, else
+     request URL, else `https`.
+   - `resolveDynamicBaseURL(config, request, basePath)` — looks up
+     the host in `allowedHosts`, builds `<protocol>://<host><basePath>`,
+     falls back to `config.fallback`, or throws `BetterAuthError`
+     mentioning the rejected host.
+   - `resolveBaseURL(config, basePath, request, ...)` — entry point
+     that branches on the config shape.
+
+4. Validates non-empty `allowedHosts` at init in
+   `packages/better-auth/src/context/create-context.ts` and skips the
+   static `getBaseURL(...)` call when the config is dynamic.
+
+5. In `auth.handler` (`packages/better-auth/src/auth/base.ts`):
+   when the config is dynamic, derives a per-request context via
+   `Object.create(ctx)` and reassigns `handlerCtx.baseURL`,
+   `handlerCtx.options` (with the resolved string baseURL),
+   `handlerCtx.trustedOrigins` (recomputed against the request),
+   and — when `crossSubDomainCookies.enabled` — `handlerCtx.authCookies`
+   and `handlerCtx.createAuthCookie`. The static-config path keeps
+   the existing single-shared-context behavior. Passes `handlerCtx`
+   to `router(...)` and `runWithAdapter(...)`.
+
+6. `getTrustedOrigins` in
+   `packages/better-auth/src/context/helpers.ts` is extended: when
+   the config is dynamic, the resulting `trustedOrigins` includes
+   every entry of `allowedHosts` prefixed with `https://`, plus a
+   `http://` variant for any localhost entry, plus the `fallback`
+   origin if set.
+
+7. Cookie getter
+   (`packages/better-auth/src/cookies/index.ts:createCookieGetter`):
+   the `secure` flag precedence becomes `advanced.useSecureCookies` >
+   dynamic `protocol: "https"|"http"` > static-string baseURL scheme
+   > `isProduction`. The crossSubDomainCookies-without-domain check
+   no longer throws when the baseURL is dynamic (the per-request
+   handler will recompute the domain).
+
+8. Every pre-existing string-consuming site that previously read
+   `options.baseURL` directly is narrowed (`typeof options.baseURL
+   === "string" ? options.baseURL : undefined / fallback`). This
+   spans `cookies/index.ts`, `plugins/jwt/{sign,verify}.ts`,
+   `plugins/mcp/index.ts`, `plugins/oauth-proxy/index.ts`,
+   `plugins/oidc-provider/index.ts`, `integrations/svelte-kit.ts`,
+   `test-utils/test-instance.ts`, `packages/passkey/src/routes.ts`,
+   `packages/telemetry/src/index.ts`.
+
+Equally-valid alternatives we accept:
+
+- Helpers folded into a different module (e.g. a new
+  `dynamic-base-url.ts` instead of `url.ts`), or named differently
+  (`isDynamicConfig`, `resolveDynamicURL`, etc.).
+- Per-request context derivation via `{...ctx}`, `structuredClone(ctx)`,
+  or an `AuthContext` class instance — anything that achieves
+  per-request isolation.
+- Init-time validation deferred to first-request validation, as long
+  as a request through an empty-`allowedHosts` config eventually
+  rejects with a message containing `allowedHosts`.
+- Different but equivalent error wording on the disallowed-host path
+  as long as the rejected host (or `not in the allowed hosts`) shows
+  up in the message.
+
+What naive implementations get wrong:
+
+- Caching the dynamic-resolved baseURL on the shared `AuthContext`
+  at init time (or on the first request) and reusing it for every
+  subsequent request — multi-tenant requests collide.
+- Mutating the shared `ctx.options.baseURL` per-request — concurrent
+  requests for different hosts race and contaminate each other.
+- Forgetting to recompute the cookie getter per-request when
+  `crossSubDomainCookies.enabled` — the cookie domain stays at
+  whatever was set first, breaking multi-domain cookie scoping.
+- Not auto-populating `trustedOrigins` from `allowedHosts` — every
+  request from a legitimate allowed host fails CSRF, since the
+  origin isn't in `trustedOrigins`.
+- Forgetting the `http://` localhost variant in `trustedOrigins` —
+  local development breaks because the dev server (`http://localhost`)
+  is not on the trusted-origins list, so every request from local
+  fails origin checks.
+- Stringify-coercing the dynamic config object into JWT issuer /
+  passkey rpID / telemetry project ID claims (the literal
+  "[object Object]") because a string-narrow was missed at one of
+  the consumer sites.
+- Validating non-empty `allowedHosts` only when the config is wrong —
+  e.g. accepting `[]` and only failing when the first request comes
+  in from a non-existent host.
+"""
+
+[metadata.taxonomy]
+task_type = "feature"
+stack = ["typescript-lib"]
+estimated_human_time = "extended"
+runtime_dependence = "runtime-helpful"
+misdirection = "passive"
+skills = ["codebase-exploration", "interface-design", "framework-fluency", "api-contract-design", "concurrency-reasoning", "state-management", "security-reasoning", "logic-fix"]
+skill_breadth = "broad"
+
+[metadata.oracle_scope]
+sloc = 529
+files = 17
+hunks = 32
+scope = "extensive"
+
+[metadata.origin]
+repo = "better-auth/better-auth"
+pr_numbers = [8009]
+base_commit = "27b6f555be369a2960cde3fa01843bb79e6091dd"
+base_commit_date = "2026-02-16"
+merged_at = "2026-02-20"
+
+
+
+

@@ -1,0 +1,27 @@
+{
+  "story_id": "disallowed_host_without_fallback_throws",
+  "test_cases": [
+    {
+      "inputs": {
+        "allowed_hosts": [
+          "myapp.com"
+        ],
+        "forwarded_host": "evil.com"
+      },
+      "expected": {
+        "error_message_lower_host_match": "evil.com"
+      }
+    },
+    {
+      "inputs": {
+        "allowed_hosts": [
+          "app.example.com"
+        ],
+        "forwarded_host": "intruder.test"
+      },
+      "expected": {
+        "error_message_lower_host_match": "intruder.test"
+      }
+    }
+  ]
+}

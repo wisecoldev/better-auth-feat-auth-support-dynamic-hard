@@ -1,0 +1,29 @@
+    read_file: packages/better-auth/src/utils/url.ts
+    read_file: packages/core/src/types/init-options.ts
+  [rubric turn 0] stop=tool_use tools=2
+    read_file: packages/better-auth/src/auth/base.ts
+    read_file: packages/better-auth/src/context/create-context.ts [1-200]
+  [rubric turn 1] stop=tool_use tools=2
+    read_file: packages/better-auth/src/context/create-context.ts [185-320]
+    read_file: packages/better-auth/src/cookies/index.ts [1-100]
+  [rubric turn 2] stop=tool_use tools=2
+    read_file: packages/better-auth/src/auth/dynamic-base-url.test.ts
+    read_file: packages/better-auth/src/utils/url.test.ts [261-348]
+  [rubric turn 3] stop=tool_use tools=2
+    read_file: packages/better-auth/src/plugins/jwt/sign.ts
+    read_file: packages/better-auth/src/plugins/jwt/verify.ts
+  [rubric turn 4] stop=tool_use tools=2
+    read_file: packages/better-auth/src/integrations/svelte-kit.ts
+    read_file: packages/better-auth/src/plugins/mcp/index.ts [1-50]
+  [rubric turn 5] stop=tool_use tools=2
+    read_file: packages/better-auth/src/plugins/mcp/index.ts [50-120]
+    read_file: packages/passkey/src/routes.ts [1-80]
+  [rubric turn 6] stop=tool_use tools=2
+    read_file: packages/passkey/src/routes.ts [80-160]
+    read_file: packages/better-auth/src/utils/wildcard.ts
+  [rubric turn 7] stop=tool_use tools=2
+    read_file: packages/better-auth/src/plugins/oauth-proxy/index.ts [140-180]
+    read_file: packages/better-auth/src/plugins/oauth-proxy/index.ts [545-580]
+  [rubric turn 8] stop=tool_use tools=2
+    submit_scores: 12 criteria
+  [rubric turn 9] stop=tool_use tools=1

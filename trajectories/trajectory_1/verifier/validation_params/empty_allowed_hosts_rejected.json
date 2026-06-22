@@ -1,0 +1,25 @@
+{
+  "story_id": "empty_allowed_hosts_rejected",
+  "test_cases": [
+    {
+      "inputs": {
+        "allowed_hosts": [],
+        "followup_request_host": "anyhost.example.com",
+        "required_substring": "allowedhosts"
+      },
+      "expected": {
+        "error_message_lower_substring_match": "allowedhosts"
+      }
+    },
+    {
+      "inputs": {
+        "allowed_hosts": [],
+        "followup_request_host": "another.test",
+        "required_substring": "allowed"
+      },
+      "expected": {
+        "error_message_lower_substring_match": "allowed"
+      }
+    }
+  ]
+}

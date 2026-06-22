@@ -1,0 +1,28 @@
+# Verifier runner configuration.
+#
+# This task ships ONE TypeScript vitest test file (verify.test.ts).
+# The js runner (src/resources/scripts/runners/js.py) discovers
+# verify*.test.ts under /tests/verify/, copies the file into
+# `repo_dir/test_parent`, and runs `npx vitest run <copied-path>
+# --reporter=json --testTimeout=...` from `repo_dir/config_dir`.
+#
+# Layout choices:
+# - config_dir = "" — run from /repo/better-auth (the workspace root)
+#   so root vitest.config.ts and the pnpm workspace deps resolve, and
+#   the `dev-source` SSR resolve condition is active (see repo notes).
+# - test_parent = "packages/better-auth/src/auth" — the file ships
+#   alongside the existing `full.test.ts`, so its relative
+#   `../test-utils/test-instance` import resolves the same way.
+# - runner = "vitest" + the js runner uses `npx vitest run` with the
+#   `--reporter=json` flag the runner needs to parse results.
+# - timeout = 600 (10 min). Each individual test sets its own 60s
+#   timeout; the outer 600s window covers cold-start vitest +
+#   workspace resolution + the two regression cases.
+
+[jest]
+config_dir = ""
+test_parent = "packages/better-auth/src/auth"
+runner = "vitest"
+command = "npx vitest"
+test_path_flag = "--testPathPattern"
+timeout = 600

@@ -1,0 +1,30 @@
+{
+  "agent": {
+    "agent_class": "default",
+    "system_prompt_path": "/logs/verifier/miniswebench/01.system_prompt.md",
+    "instance_template": "{{ task }}",
+    "step_limit": 125,
+    "cost_limit": 0,
+    "output_path": "/logs/verifier/miniswebench/01.trajectory.json"
+  },
+  "environment": {
+    "environment_class": "local",
+    "cwd": "/repo/better-auth",
+    "timeout": 600
+  },
+  "model": {
+    "model_name": "@bedrock/global.anthropic.claude-sonnet-4-6",
+    "model_class": "portkey",
+    "provider": "bedrock",
+    "model_kwargs": {
+      "drop_params": true,
+      "temperature": 0.0,
+      "parallel_tool_calls": true
+    },
+    "cost_tracking": "ignore_errors",
+    "observation_template": "mini_truncated_json"
+  },
+  "run": {
+    "user_prompt_path": "/logs/verifier/miniswebench/01.user_prompt.md"
+  }
+}

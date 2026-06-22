@@ -1,0 +1,29 @@
+    read_file: packages/better-auth/src/utils/url.ts
+    read_file: packages/core/src/types/init-options.ts [330-400]
+  [rubric turn 0] stop=tool_use tools=2
+    read_file: packages/better-auth/src/auth/dynamic-base-url.test.ts
+    read_file: packages/better-auth/src/auth/base.ts
+  [rubric turn 1] stop=tool_use tools=2
+    read_file: packages/better-auth/src/cookies/index.ts [1-130]
+    read_file: packages/better-auth/src/context/create-context.ts [100-240]
+  [rubric turn 2] stop=tool_use tools=2
+    read_file: packages/better-auth/src/context/helpers.ts
+    read_file: packages/core/src/types/context.ts [260-310]
+  [rubric turn 3] stop=tool_use tools=2
+    read_file: packages/better-auth/src/plugins/jwt/sign.ts [80-120]
+    read_file: packages/better-auth/src/plugins/jwt/verify.ts [40-75]
+  [rubric turn 4] stop=tool_use tools=2
+    read_file: packages/better-auth/src/plugins/oauth-proxy/index.ts [145-165]
+    read_file: packages/better-auth/src/plugins/oauth-proxy/index.ts [550-575]
+  [rubric turn 5] stop=tool_use tools=2
+    read_file: packages/passkey/src/routes.ts [1-45]
+    read_file: packages/telemetry/src/index.ts [1-100]
+  [rubric turn 6] stop=tool_use tools=2
+    read_file: packages/better-auth/src/integrations/svelte-kit.ts
+    read_file: packages/better-auth/src/plugins/mcp/index.ts [1-60]
+  [rubric turn 7] stop=tool_use tools=2
+    read_file: packages/better-auth/src/plugins/mcp/index.ts [60-120]
+    read_file: packages/core/src/types/index.ts
+  [rubric turn 8] stop=tool_use tools=2
+    submit_scores: 12 criteria
+  [rubric turn 9] stop=tool_use tools=1

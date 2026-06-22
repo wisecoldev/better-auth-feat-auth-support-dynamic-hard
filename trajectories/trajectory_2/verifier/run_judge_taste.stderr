@@ -1,0 +1,15 @@
+  [taste turn 0] stop=tool_use tools=2
+  [taste turn 1] stop=tool_use tools=2
+  [taste turn 2] stop=tool_use tools=2
+  [taste turn 3] stop=tool_use tools=2
+  [taste turn 4] stop=tool_use tools=2
+  [taste turn 5] stop=tool_use tools=2
+  [taste turn 6] stop=tool_use tools=2
+  [taste turn 7] stop=tool_use tools=2
+  [taste turn 8] stop=tool_use tools=2
+  [taste turn 9] stop=tool_use tools=2
+  [taste turn 10] stop=tool_use tools=2
+  [taste turn 11] stop=tool_use tools=2
+  [taste turn 12] stop=tool_use tools=1
+  [taste turn 13] stop=tool_use tools=1
+  [taste turn 14] stop=end_turn tools=0

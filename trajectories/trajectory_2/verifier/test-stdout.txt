@@ -1,0 +1,139 @@
+[main 830e243aa] agent changes
+ 16 files changed, 569 insertions(+), 52 deletions(-)
+ create mode 100644 packages/better-auth/src/auth/dynamic-base-url.test.ts
+v22.22.2
+10.28.2
+[test-setup] ready: /repo/better-auth (node=v22.22.2, pnpm=10.28.2)
+Rubric judge (agentic): 16 changed files, 2 extra reference files
+    read_file: packages/core/src/types/init-options.ts [334-400]
+    read_file: packages/core/src/types/index.ts
+  [rubric turn 0] stop=tool_use tools=2
+    read_file: packages/better-auth/src/auth/base.ts
+    read_file: packages/better-auth/src/utils/url.ts
+  [rubric turn 1] stop=tool_use tools=2
+    read_file: packages/better-auth/src/cookies/index.ts [1-120]
+    read_file: packages/better-auth/src/plugins/jwt/sign.ts [80-120]
+  [rubric turn 2] stop=tool_use tools=2
+    read_file: packages/better-auth/src/integrations/svelte-kit.ts
+    read_file: packages/better-auth/src/plugins/mcp/index.ts [1-50]
+  [rubric turn 3] stop=tool_use tools=2
+    read_file: packages/better-auth/src/plugins/mcp/index.ts [50-150]
+    read_file: packages/better-auth/src/context/create-context.ts [95-160]
+  [rubric turn 4] stop=tool_use tools=2
+    read_file: packages/better-auth/src/context/create-context.ts [130-145]
+    read_file: packages/core/src/types/context.ts [260-300]
+  [rubric turn 5] stop=tool_use tools=2
+    read_file: packages/better-auth/src/plugins/mcp/index.ts [50-60]
+    read_file: packages/better-auth/src/integrations/svelte-kit.ts [37-52]
+  [rubric turn 6] stop=tool_use tools=2
+    read_file: packages/telemetry/src/index.ts
+    read_file: packages/better-auth/src/plugins/oauth-proxy/index.ts [540-580]
+  [rubric turn 7] stop=tool_use tools=2
+    read_file: packages/better-auth/src/plugins/mcp/index.ts [150-250]
+    read_file: packages/better-auth/src/plugins/oidc-provider/index.ts [1025-1045]
+  [rubric turn 8] stop=tool_use tools=2
+    submit_scores: 3 criteria
+  [rubric turn 9] stop=tool_use tools=1
+LLM judge complete. fail_to_pass=0.83 pass_to_pass=n/a rubric=0.83 (3 criteria)
+  [F+] dynamic_base_url_types_exposed: The `DynamicBaseURLConfig` type is defined in `packages/core/src/types/init-options.ts` with `allowedHosts: string[]` (required), `fallback?: string`, and `protocol?: 'http' | 'https'`. It's exported from `packages/core/src/types/index.ts` and re-exported from `packages/better-auth/src/types/index.ts`. The `BetterAuthOptions.baseURL` is widened to `string | DynamicBaseURLConfig | undefined`. Note: the rubric mentioned `protocol?: 'http' | 'https' | 'auto'` but the implementation uses `'http' | 'https'` — this is a reasonable subset and the type is named and exported as required.
+  [F+] per_request_isolation: When `isDynamicBaseURLConfig(baseURLConfig)` is true, `base.ts` calls `createRequestContext(ctx, baseURL)` which uses object spread (`{ ...ctx, ... }`) to create a new per-request context object. The shared `ctx` is never mutated in the dynamic path. The `options` object is also spread to create a new copy with the resolved `baseURL`. This correctly isolates concurrent requests from contaminating each other's resolved baseURL, cookie domain, or trustedOrigins.
+  [F+] consumer_type_safety: Most consumers are properly handled: cookies/createCookieGetter uses explicit string check, jwt sign/verify uses `typeof === 'string'` narrowing, oauth-proxy uses string narrowing, telemetry uses a helper function, passkey uses getContextBaseURL helper. However, `svelte-kit.ts` `isAuthPath` at line 40 uses `${options.baseURL || _url.origin}` directly in a template literal without narrowing — if `options.baseURL` is a `DynamicBaseURLConfig` object, it would be coerced to `[object Object]`. Also, `mcp/index.ts` line 52 uses `ctx.context.options.baseURL as string` (a cast rather than runtime narrowing), which could produce wrong values at runtime. These two files were listed in the rubric's consumer list but were not updated.
+Rubric judge (agentic): 16 changed files, 2 extra reference files
+    read_file: packages/better-auth/src/utils/url.ts
+    read_file: packages/core/src/types/init-options.ts [330-400]
+  [rubric turn 0] stop=tool_use tools=2
+    read_file: packages/better-auth/src/auth/dynamic-base-url.test.ts
+    read_file: packages/better-auth/src/auth/base.ts
+  [rubric turn 1] stop=tool_use tools=2
+    read_file: packages/better-auth/src/cookies/index.ts [1-130]
+    read_file: packages/better-auth/src/context/create-context.ts [100-240]
+  [rubric turn 2] stop=tool_use tools=2
+    read_file: packages/better-auth/src/context/helpers.ts
+    read_file: packages/core/src/types/context.ts [260-310]
+  [rubric turn 3] stop=tool_use tools=2
+    read_file: packages/better-auth/src/plugins/jwt/sign.ts [80-120]
+    read_file: packages/better-auth/src/plugins/jwt/verify.ts [40-75]
+  [rubric turn 4] stop=tool_use tools=2
+    read_file: packages/better-auth/src/plugins/oauth-proxy/index.ts [145-165]
+    read_file: packages/better-auth/src/plugins/oauth-proxy/index.ts [550-575]
+  [rubric turn 5] stop=tool_use tools=2
+    read_file: packages/passkey/src/routes.ts [1-45]
+    read_file: packages/telemetry/src/index.ts [1-100]
+  [rubric turn 6] stop=tool_use tools=2
+    read_file: packages/better-auth/src/integrations/svelte-kit.ts
+    read_file: packages/better-auth/src/plugins/mcp/index.ts [1-60]
+  [rubric turn 7] stop=tool_use tools=2
+    read_file: packages/better-auth/src/plugins/mcp/index.ts [60-120]
+    read_file: packages/core/src/types/index.ts
+  [rubric turn 8] stop=tool_use tools=2
+    submit_scores: 12 criteria
+  [rubric turn 9] stop=tool_use tools=1
+LLM judge complete. fail_to_pass=1.00 pass_to_pass=1.00 rubric=1.00 (12 criteria)
+  [F+] empty_`allowedhosts:_[]`_is_rejected_with_an_error_message_t: validateDynamicBaseURLConfig in url.ts checks if allowedHosts is empty and throws BetterAuthError with message containing 'allowedHosts (allowed-hosts)'. The test confirms the regex /allowedHosts.*allowed-hosts/ matches. Called from createAuthContext via validateDynamicBaseURLConfig(baseURLConfig).
+  [F+] a_request_bearing_`x-forwarded-host`_matching_an_allowed_hos: resolveDynamicBaseURL reads x-forwarded-host and x-forwarded-proto via getRequestHost/getRequestProtocol. In base.ts, createRequestContext sets ctx.baseURL to the resolved URL and options.baseURL to the origin. The test expects body.baseURL to be 'https://www.myapp.com/api/auth' and body.optionsBaseURL to be 'https://www.myapp.com'.
+  [F+] a_request_from_a_host_outside_`allowedhosts`_(with_no_`fallb: resolveDynamicBaseURL throws BetterAuthError with the rejected host name when no fallback is configured and the host is not in allowedHosts. The test expects auth.handler(request('evil.com')) to reject with /evil\.com/.
+  [F+] wildcard_host_patterns_(e.g._`*.vercel.app`,_`preview-*.myap: isAllowedHost uses wildcardMatch for patterns containing '*' or '?'. The test confirms *.vercel.app matches feature-foo-abc123.vercel.app and preview-*.myapp.com matches preview-123.myapp.com.
+  [F+] when_the_request's_host_is_not_in_`allowedhosts`_but_a_`fall: resolveDynamicBaseURL checks if fallback is configured and returns withPath(config.fallback, path) when host is not in allowedHosts. Test confirms evil.com with fallback 'https://myapp.com' resolves to 'https://myapp.com/api/auth'.
+  [F+] the_optional_`protocol`_config_takes_precedence_over
+`x-forw: getRequestProtocol returns config.protocol immediately if set, before checking x-forwarded-proto. Test confirms protocol:'https' with x-forwarded-proto:'http' results in 'https://myapp.com/api/auth'.
+  [F+] `trustedorigins`_is_auto-expanded_from_`allowedhosts`_so_wil: getDynamicBaseURLTrustedOrigins adds https:// for all allowedHosts, plus http:// for localhost entries. Fallback origin is also added. getTrustedOrigins calls this function. Test confirms all expected origins are present including both http and https for localhost:3000.
+  [F+] with_`crosssubdomaincookies.enabled:_true`_and_a_dynamic_bas: createRequestContext creates new options with resolved baseURL per request, then calls getCookies(options) with the per-request options. createCookieGetter uses resolvedBaseURL for the domain attribute. Test expects Domain=app.myapp.com for first request and Domain=preview.myapp.com for second.
+  [F+] the_public_option_type_for_`baseurl`_accepts_both_a_static_s: DynamicBaseURLConfig type is defined in init-options.ts with allowedHosts, fallback, and protocol fields. BetterAuthOptions.baseURL is typed as 'string | DynamicBaseURLConfig | undefined'. DynamicBaseURLConfig is exported from core/src/types/index.ts and better-auth/src/types/index.ts.
+  [F+] when_two_requests_for_distinct_allowed_hosts_are_processed
+c: createRequestContext creates a brand new context object via spread for each request (not mutating shared ctx for dynamic baseURL). requestCtx is a new object per request. The shared ctx is only mutated in the static path. Each request gets isolated baseURL, cookies, and trustedOrigins.
+  [F+] pre-existing_consumers_of_`options.baseurl`_that_previously: JWT sign/verify check 'typeof ctx.context.options.baseURL === "string"' before using. oauth-proxy similarly guards. passkey uses getContextBaseURL helper. telemetry uses getTelemetryBaseURL helper. oidc-provider casts to string|undefined. mcp still uses options.baseURL as string but this was pre-existing and options.baseURL is normalized to string by the time plugins see it.
+  [P+] static-string_baseurl_still_works_after_the_option_type_wide: getBaseURL checks isDynamicBaseURLConfig first, then falls through to the existing string handling (withPath(url, path)). createCookieGetter similarly checks typeof options.baseURL === 'string'. The base.ts handler has the else branch for non-dynamic configs that preserves original behavior.
+  [taste turn 0] stop=tool_use tools=2
+  [taste turn 1] stop=tool_use tools=2
+  [taste turn 2] stop=tool_use tools=2
+  [taste turn 3] stop=tool_use tools=2
+  [taste turn 4] stop=tool_use tools=2
+  [taste turn 5] stop=tool_use tools=2
+  [taste turn 6] stop=tool_use tools=2
+  [taste turn 7] stop=tool_use tools=2
+  [taste turn 8] stop=tool_use tools=2
+  [taste turn 9] stop=tool_use tools=2
+  [taste turn 10] stop=tool_use tools=2
+  [taste turn 11] stop=tool_use tools=2
+  [taste turn 12] stop=tool_use tools=1
+  [taste turn 13] stop=tool_use tools=1
+  [taste turn 14] stop=end_turn tools=0
+Patch bloat: agent=420 SLOC / oracle=511 SLOC → ratio=0.822 (unfiltered ratio=1.055), 1 agent files dropped
+Taste: practice_alignment=3.2/5 relative_taste=2.4/5
+  [Practice] style_consistency=3/5: The agent's code generally follows the project's tab indentation and TypeScript-first style, but the `createRequestContext` helper function and `as BetterAuthOptions`/`as AuthContext` casts are a bit clunky compared to the maintainer style. The oracle avoids these casts by using structurally correct spreads.
+  [Practice] pattern_adherence=3/5: The agent follows most established patterns (functional style, no classes, separated type imports) but misses the `Object.create(ctx)` prototype-chain pattern the codebase uses for per-request context isolation, opting for a heavier shallow-spread + mutation approach instead.
+  [Practice] library_usage=4/5: The agent uses the same libraries and internal utilities without introducing new dependencies. However, it references `resolveBaseURL` in concept but uses `getBaseURL` directly, which is a minor inconsistency with how the oracle structures the URL resolution.
+  [Practice] abstraction_level=3/5: The abstraction level is generally appropriate but the `createRequestContext` helper over-abstracts what the oracle handles inline with `Object.create(ctx)`, and the `getDynamicBaseURLTrustedOrigins` helper usage in `helpers.ts` adds an indirection layer not present in the oracle.
+  [Practice] documentation_fit=3/5: The agent adds no JSDoc comments for the new `createRequestContext` function or the modified logic in `helpers.ts`, while the oracle adds detailed JSDoc for `matchesHostPattern` and inline comments explaining the race-condition rationale. The project's style expects JSDoc on complex logic.
+  [Taste] minimality=3/5: The agent's changes are reasonably focused but introduce an unnecessary `createRequestContext` helper, add `baseURLConfig` parameter threading through more places than needed, and add a `Set` deduplication in `getTrustedOrigins` that the oracle doesn't include. The oracle's changes are more surgical.
+  [Taste] approach_quality=2/5: The agent's core issue is that it normalizes `options.baseURL` to an empty string `""` for dynamic configs in `create-context.ts`, losing the dynamic config object — the oracle correctly preserves it. Also, `{...ctx}` spread with manual session nulling is fragile compared to `Object.create(ctx)` which avoids needing to reset mutable state.
+  [Taste] hygiene=2/5: The agent uses `as BetterAuthOptions` and `as AuthContext` unsafe casts, mutates `requestCtx.baseURLConfig` after creation, and has the `! ` non-null assertion on `contextBaseURL!` in jwt/sign.ts. These are shortcuts the oracle avoids by using structurally correct types throughout.
+  [Taste] fluency=3/5: The agent understands the domain well enough to implement the core feature, but misunderstands some key design decisions — particularly around how the dynamic config object should flow through `options.baseURL` rather than being stored separately in `ctx.baseURLConfig`. The oracle's use of `resolveBaseURL` (a function the agent doesn't use) also shows a gap in API fluency.
+  [Taste] craftsmanship=2/5: A senior maintainer would request significant revisions: the `Object.create` vs spread issue creates subtle bugs with concurrent requests, the dynamic config is lost at `create-context.ts`, missing the `matchesHostPattern` helper in `trusted-origins.ts` leaves the wildcard matching incomplete, and no tests are added. The oracle patch is substantially more complete and correct.
+Taste evaluation complete.
+Running validation setup...
+v22.22.2
+10.28.2
+vitest/4.0.18 linux-x64 node-v22.22.2
+[validation-setup] Missing dist files: /repo/better-auth/packages/better-auth/dist/test-utils/test-instance.js, /repo/better-auth/packages/better-auth/dist/client.js
+[validation-setup] ready: /repo/better-auth
+Installing mini-swe-agent==2.3.0...
+============================================================
+  VALIDATION: User Story Verification
+============================================================
+  Base ref: df4fca5b883c | Stories: 8 | VA: miniswebench/@bedrock/global.anthropic.claude-sonnet-4-6
+  Pre-CC checkpoint: 8ccfc9de1fb0
+  Stage 1: Generating scripts via miniswebench (model=@bedrock/global.anthropic.claude-sonnet-4-6)...
+  Stage 1.6: Pre-retry judge — CLEAN
+  Stage 2: Executing and verifying...
+  [empty_allowed_hosts_rejected] PASS (2 cases)
+  [allowed_exact_host_resolves] PASS (2 cases)
+  [disallowed_host_without_fallback_throws] PASS (2 cases)
+  [wildcard_host_pattern_matches] PASS (2 cases)
+  [fallback_used_for_disallowed_host] PASS (2 cases)
+  [protocol_config_overrides_proxy_proto] PASS (2 cases)
+  [trusted_origins_includes_all_allowed_hosts] PASS (2 cases)
+  [per_request_cookie_domain_dynamic] PASS (2 cases)
+
+  Stories: 8/8 | Cases: 16/16 | Score: 1.0
+  Stage 2.5: Post-exec judge — score=3.00

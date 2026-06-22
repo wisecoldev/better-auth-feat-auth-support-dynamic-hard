@@ -1,0 +1,61 @@
+{
+  "per_criterion": {
+    "behavioral_authenticity": 3,
+    "procedure_fidelity": 3,
+    "story_coverage": 3,
+    "execution_outcome_alignment": 3,
+    "expected_fidelity": 3
+  },
+  "rationales": {
+    "behavioral_authenticity": "[REDACTED]",
+    "procedure_fidelity": "Each test file mirrors the exact procedure steps: captures context fields via before hook middleware, uses the prescribed error-capture pattern for init/runtime errors, computes the substring/host match expressions exactly as described, and uses sequential requests for the cookie domain story.",
+    "story_coverage": "All 8 stories have corresponding test files; all 16 test cases (2 per story) are covered with full assertion bodies.",
+    "execution_outcome_alignment": "All 8 stories pass with 16/16 cases; the patch implements dynamic baseURL resolution with allowedHosts validation, wildcard matching, fallback, protocol override, trusted origins expansion, and per-request cookie domain recomputation \u2014 exactly what the passing stories test.",
+    "expected_fidelity": "Every expected key in every story is used unconditionally: error_message_lower_substring_match, captured_base_url, captured_options_base_url, error_message_lower_host_match, required_origins_present_json, and unique_domains_json are all asserted without guards."
+  },
+  "per_story": {
+    "empty_allowed_hosts_rejected": {
+      "implemented": true,
+      "faithful_score": 3.0,
+      "notes": "Correctly implements both init-error and runtime-error capture paths, computes errorMessageLowerSubstringMatch exactly per procedure, and asserts against expected.error_message_lower_substring_match unconditionally."
+    },
+    "allowed_exact_host_resolves": {
+      "implemented": true,
+      "faithful_score": 3.0,
+      "notes": "Captures both capturedBaseURL and capturedOptionsBaseURL via the before hook and asserts both expected keys unconditionally."
+    },
+    "disallowed_host_without_fallback_throws": {
+      "implemented": true,
+      "faithful_score": 3.0,
+      "notes": "Uses auth.handler directly with the disallowed host, computes errorMessageLowerHostMatch exactly as specified, and asserts against expected.error_message_lower_host_match."
+    },
+    "wildcard_host_pattern_matches": {
+      "implemented": true,
+      "faithful_score": 3.0,
+      "notes": "Creates a fresh getTestInstance per case with the wildcard allowedHosts, captures baseURL via before hook, and asserts expected.captured_base_url."
+    },
+    "fallback_used_for_disallowed_host": {
+      "implemented": true,
+      "faithful_score": 3.0,
+      "notes": "Configures both allowedHosts and fallback, sends a request from a disallowed host, and asserts capturedBaseURL equals the fallback-derived expected.captured_base_url."
+    },
+    "protocol_config_overrides_proxy_proto": {
+      "implemented": true,
+      "faithful_score": 3.0,
+      "notes": "Passes inputs.protocol into the baseURL config and inputs.forwarded_proto as the header, then asserts capturedBaseURL uses the configured protocol."
+    },
+    "trusted_origins_includes_all_allowed_hosts": {
+      "implemented": true,
+      "faithful_score": 3.0,
+      "notes": "Captures trustedOrigins snapshot in the before hook, computes the filtered/sorted JSON of required origins present, and asserts against expected.required_origins_present_json."
+    },
+    "per_request_cookie_domain_dynamic": {
+      "implemented": true,
+      "faithful_score": 3.0,
+      "notes": "Issues two sequential requests with different hosts, collects domains from authCookies in the before hook, computes uniqueDomainsJson, and asserts against expected.unique_domains_json."
+    }
+  },
+  "overall": 3.0,
+  "discard_recommended": false,
+  "discard_reasons": []
+}

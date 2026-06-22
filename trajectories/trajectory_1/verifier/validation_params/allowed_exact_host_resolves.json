@@ -1,0 +1,32 @@
+{
+  "story_id": "allowed_exact_host_resolves",
+  "test_cases": [
+    {
+      "inputs": {
+        "allowed_hosts": [
+          "myapp.com"
+        ],
+        "forwarded_host": "myapp.com",
+        "forwarded_proto": "https"
+      },
+      "expected": {
+        "captured_base_url": "https://myapp.com/api/auth",
+        "captured_options_base_url": "https://myapp.com"
+      }
+    },
+    {
+      "inputs": {
+        "allowed_hosts": [
+          "app.example.com",
+          "auth.example.com"
+        ],
+        "forwarded_host": "auth.example.com",
+        "forwarded_proto": "https"
+      },
+      "expected": {
+        "captured_base_url": "https://auth.example.com/api/auth",
+        "captured_options_base_url": "https://auth.example.com"
+      }
+    }
+  ]
+}
