@@ -1,0 +1,1 @@
+# better-auth-feat-auth-support-dynamic-hard
